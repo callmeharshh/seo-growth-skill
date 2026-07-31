@@ -53,6 +53,9 @@ python3 scripts/audit.py www.8x.social --conversion /en/book-call --save
 
 # the whole timeline for a domain
 python3 scripts/audit.py www.8x.social --history
+
+# a dashboard covering every domain you've saved
+python3 scripts/audit.py --dashboard
 ```
 
 ## What it checks
@@ -122,6 +125,36 @@ Changed since 2026-07-31-2212:
 
 Runs are saved as dated JSON in `~/.seo-growth/<domain>/`. `--history` shows the
 whole timeline.
+
+## The dashboard
+
+```bash
+for d in 8x.social shortimize.com sideshift.app; do
+  python3 scripts/audit.py "$d" --save
+done
+python3 scripts/audit.py --dashboard
+```
+
+Writes one self-contained HTML file — `~/.seo-growth/dashboard.html`. One row per
+domain, side by side:
+
+```
+Domain               Status              404s  Temp     Translated  FAQ    Changed
+                                              redirects    %       pages  since last
+www.8x.social        2/6 checks passing   NO      4          8       3     no change
+sideshift.app        3/6 checks passing   yes     0         n/a      0     no change
+www.shortimize.com   4/6 checks passing   yes     0         n/a      1     no change
+```
+
+Under the table, a "what to fix" list per domain with the exact verification
+command.
+
+No server, no build step, no dependencies — it's a 4KB HTML file. Open it by
+double-clicking, or drop it on any static host if you want it shared.
+
+"Status" is deliberately dumb: how many of six checks are currently in a good
+state. No weighting, no hidden formula — you can recount it from the row. A blank
+cell means the check couldn't be measured, which is not the same as passing.
 
 ## Across a portfolio
 

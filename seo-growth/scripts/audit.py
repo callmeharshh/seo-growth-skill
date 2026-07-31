@@ -431,6 +431,150 @@ def print_summary(run):
     print()
 
 
+# ---------------------------------------------------------------------------
+# Dashboard: one HTML file built from every saved run.
+#
+# No framework, no build step, no hosting. It writes a single file you can open
+# by double-clicking or drop on any static host. That felt like the right shape:
+# the whole point of this tool is that it works without setting anything up.
+# ---------------------------------------------------------------------------
+
+def build_dashboard(out_path=None):
+    domains = []
+    if os.path.isdir(HISTORY_DIR):
+        for name in sorted(os.listdir(HISTORY_DIR)):
+            runs = past_runs(name)
+            if runs:
+                domains.append((name, runs))
+
+    if not domains:
+        return None, "No saved runs yet. Run an audit with --save first."
+
+    rows = []
+    for domain, runs in domains:
+        stamp, latest = runs[-1]
+        m = key_metrics(latest)
+        changes = compare(runs[-2][1], latest) if len(runs) >= 2 else []
+        problems = len(latest.get("notes") or [])
+
+        # Health here is deliberately simple: how many of the checks that
+        # returned an answer are currently in a good state. No weighting, no
+        # hidden formula — you can recount it by hand from the table.
+        checks = [
+            m["unknown URLs 404 correctly"] is True,
+            m["temporary redirects"] == 0,
+            m["llms.txt present"] is True,
+            (m["pages with no conversion link"] or 0) == 0,
+            (m["translated into every locale (%)"] or 100) >= 90,
+            (m["pages with FAQ schema"] or 0) > 0,
+        ]
+        passed = sum(1 for c in checks if c)
+        rows.append({
+            "domain": domain, "stamp": stamp, "m": m, "changes": changes,
+            "problems": problems, "passed": passed, "total": len(checks),
+            "runs": len(runs),
+            "history": [(s, key_metrics(r)) for s, r in runs],
+        })
+
+    def cell(value, good=None):
+        """A number plus a word. Never colour on its own."""
+        if value is None:
+            return '<td class="muted">not measured</td>'
+        if isinstance(value, bool):
+            return (f'<td class="{"ok" if value else "bad"}">'
+                    f'{"yes" if value else "NO"}</td>')
+        cls = "" if good is None else ("ok" if good else "bad")
+        return f'<td class="{cls}">{value}</td>'
+
+    body = []
+    for r in rows:
+        m = r["m"]
+        body.append(f"""
+      <tr>
+        <td class="dom"><strong>{r['domain']}</strong><br>
+          <span class="muted">{r['stamp']} · {r['runs']} run(s)</span></td>
+        <td><strong>{r['passed']}/{r['total']}</strong> checks passing</td>
+        {cell(m['unknown URLs 404 correctly'])}
+        {cell(m['temporary redirects'], m['temporary redirects'] == 0)}
+        {cell(m['translated into every locale (%)'])}
+        {cell(m['pages with FAQ schema'])}
+        {cell(m['llms.txt present'])}
+        {cell(m['images missing alt text'])}
+        <td>{'<br>'.join(c.strip() for c in r['changes']) if r['changes']
+             else '<span class="muted">no change</span>'}</td>
+      </tr>""")
+
+    notes_blocks = []
+    for domain, runs in domains:
+        notes = (runs[-1][1].get("notes") or [])
+        if not notes:
+            continue
+        items = "".join(f"<li>{n}</li>" for n in notes)
+        notes_blocks.append(f"<h3>{domain}</h3><ul>{items}</ul>")
+
+    html = f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SEO health — {len(rows)} domain(s)</title>
+<style>
+  :root {{ color-scheme: light dark; }}
+  body {{ font: 15px/1.55 system-ui, -apple-system, sans-serif;
+         margin: 0; padding: 32px 20px; max-width: 1200px; margin-inline: auto; }}
+  h1 {{ font-size: 22px; margin: 0 0 4px; }}
+  h2 {{ font-size: 16px; margin: 36px 0 10px; }}
+  h3 {{ font-size: 14px; margin: 18px 0 6px; }}
+  .muted {{ opacity: .6; font-size: 12px; }}
+  .wrap {{ overflow-x: auto; }}
+  table {{ border-collapse: collapse; width: 100%; min-width: 900px; font-size: 13px; }}
+  th, td {{ text-align: left; padding: 9px 10px; border-top: 1px solid #8884;
+            vertical-align: top; }}
+  th {{ font-size: 11px; text-transform: uppercase; letter-spacing: .04em; opacity: .6; }}
+  .dom {{ min-width: 190px; }}
+  /* Colour is a second signal only — every cell also says yes/NO or a number. */
+  .ok  {{ color: #0a7f28; font-weight: 600; }}
+  .bad {{ color: #b3261e; font-weight: 600; }}
+  ul {{ margin: 4px 0; padding-left: 20px; }} li {{ margin: 3px 0; }}
+  footer {{ margin-top: 40px; font-size: 12px; opacity: .65; }}
+  code {{ font-size: 12px; }}
+</style></head><body>
+
+<h1>SEO health</h1>
+<p class="muted">{len(rows)} domain(s) · generated {time.strftime('%Y-%m-%d %H:%M')} ·
+   built from saved runs in ~/.seo-growth</p>
+
+<div class="wrap">
+<table>
+  <thead><tr>
+    <th>Domain</th><th>Status</th><th>404s correct</th><th>Temp redirects</th>
+    <th>Translated %</th><th>FAQ pages</th><th>llms.txt</th><th>Missing alt</th>
+    <th>Changed since last run</th>
+  </tr></thead>
+  <tbody>{''.join(body)}</tbody>
+</table>
+</div>
+
+{'<h2>What to fix</h2>' + ''.join(notes_blocks) if notes_blocks else ''}
+
+<footer>
+  <p><strong>How to read this.</strong> "Status" counts how many of six checks are
+  currently in a good state — no weighting, you can recount it from the row.
+  Blank cells mean the check could not be measured, which is not the same as
+  passing.</p>
+  <p><strong>Refresh it:</strong>
+  <code>python3 audit.py &lt;domain&gt; --save</code> then
+  <code>python3 audit.py --dashboard</code></p>
+  <p>Measured from public pages only. Search volume, backlinks and real Core Web
+  Vitals are not included — those need a browser or a paid API.</p>
+</footer>
+</body></html>"""
+
+    path = out_path or os.path.join(HISTORY_DIR, "dashboard.html")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write(html)
+    return path, None
+
+
 def main():
     argv = sys.argv[1:]
 
@@ -453,6 +597,15 @@ def main():
             continue
         if not a.startswith("--"):
             positional.append(a)
+
+    # --dashboard needs no domain: it renders whatever has been saved so far.
+    if has("dashboard"):
+        path, err = build_dashboard(opt("out"))
+        if err:
+            print(err)
+            sys.exit(1)
+        print(f"Dashboard written to {path}\n\nOpen it with:  open {path}")
+        return
 
     if not positional:
         print(__doc__)

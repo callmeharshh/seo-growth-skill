@@ -40,6 +40,7 @@ mac or linux.
 | `--summary` | Human-readable output instead of JSON. Use when the person wants to read it themselves. |
 | `--save` | Save the run, and print what changed since the last one. This is the loop. |
 | `--history` | Show every saved run for a domain and the change between the last two. No network. |
+| `--dashboard` | Build one HTML file covering every saved domain. No domain argument needed. |
 
 ## What to do with the output
 
@@ -75,7 +76,12 @@ gaps in existing content, comparison pages, free tools, templated pages, off-sit
 citations, brand-name defence. Suggest in that order — each is cheaper than the
 next.
 
-**7. Always suggest `--save` on the first run.** A single audit says what's broken.
+**7. If they want to see it rather than read it**, run `--dashboard`. It writes a
+single self-contained HTML file covering every domain that's been saved, with one
+row each and a "changed since last run" column. No server, no build — they open
+the file. Tell them the path.
+
+**8. Always suggest `--save` on the first run.** A single audit says what's broken.
 Two audits say whether the fix worked, which is the question that actually
 matters. One run is a baseline; the value shows up on the second.
 
@@ -126,6 +132,18 @@ python3 scripts/audit.py site.com --history       # the whole timeline
 Runs are stored as dated JSON in `~/.seo-growth/<domain>/`. The interesting
 question isn't "what's our score" — it's "what changed since we shipped that fix,
 and did it work?"
+
+**See the whole portfolio at once.**
+
+```bash
+for d in site-one.com site-two.com site-three.com; do
+  python3 scripts/audit.py "$d" --save
+done
+python3 scripts/audit.py --dashboard   # -> ~/.seo-growth/dashboard.html
+```
+
+One row per domain, side by side, with what changed since the last run. It's a
+plain HTML file, so it opens locally or drops onto any static host.
 
 **Run it on competitors too.** Same script, same checks, so "they're better at
 this" becomes a measured difference instead of a hunch. It also shows what a
