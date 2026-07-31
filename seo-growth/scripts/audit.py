@@ -542,6 +542,18 @@ def build_dashboard(out_path=None):
 <p class="muted">{len(rows)} domain(s) · generated {time.strftime('%Y-%m-%d %H:%M')} ·
    built from saved runs in ~/.seo-growth</p>
 
+<!--
+  A FILTER, not a search. It narrows the rows already in this file.
+
+  It deliberately cannot look up a domain that hasn't been audited yet: this is a
+  static file with no server, and a browser can't crawl another site (CORS). A box
+  that appeared to audit any domain would look like it worked and wouldn't. To add
+  a domain: python3 audit.py <domain> --save, then rebuild.
+-->
+<p><input id="filter" type="search" placeholder="Filter the {len(rows)} domain(s) below…"
+     aria-label="Filter domains" autocomplete="off"></p>
+<p class="muted" id="count"></p>
+
 <div class="wrap">
 <table>
   <thead><tr>
@@ -565,7 +577,31 @@ def build_dashboard(out_path=None):
   <code>python3 audit.py --dashboard</code></p>
   <p>Measured from public pages only. Search volume, backlinks and real Core Web
   Vitals are not included — those need a browser or a paid API.</p>
+  <p>The box at the top filters the domains in this file. It can't audit a new
+  one — this is a static file with no server. Add a domain on the command line,
+  then rebuild.</p>
 </footer>
+
+<script>
+  // Filter rows by domain name. Plain DOM, no library.
+  const box = document.getElementById('filter');
+  const count = document.getElementById('count');
+  const rows = [...document.querySelectorAll('tbody tr')];
+
+  function apply() {{
+    const q = box.value.trim().toLowerCase();
+    let shown = 0;
+    for (const row of rows) {{
+      const name = row.querySelector('.dom')?.textContent.toLowerCase() ?? '';
+      const match = !q || name.includes(q);
+      row.hidden = !match;
+      if (match) shown++;
+    }}
+    count.textContent = q ? `showing ${{shown}} of ${{rows.length}}` : '';
+  }}
+
+  box.addEventListener('input', apply);
+</script>
 </body></html>"""
 
     path = out_path or os.path.join(HISTORY_DIR, "dashboard.html")
