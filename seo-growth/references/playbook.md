@@ -328,6 +328,123 @@ One narrow job, free, no signup, its own page. Requirements:
 
 ---
 
+## Bigger plays — when the basics are already fixed
+
+Everything above is repair work. This section is what to build once the site
+isn't leaking. Suggest these when someone asks "what else should we do?" rather
+than "what's broken?"
+
+Order matters here too: each one is cheaper than the one below it.
+
+### 1. Fill the gaps in what you already have
+
+The cheapest content work is finishing something half-built. Look at the
+`sections` counts in the audit — if one section dominates (say `blog: 970` out of
+1,103 URLs), the whole search surface is one content type. Blog posts only compete
+for informational queries and they decay.
+
+Check whether the blog is *already* doing something structured by hand. If there
+are lots of posts following one pattern — one per industry, one per use case, one
+per country — that's a templated section trapped inside a blog, with no index page
+and no links between siblings. Promoting it to a real section with a hub page is
+consolidation, not creation. Fastest payback available.
+
+### 2. Comparison and alternative pages
+
+For every real competitor: one page targeting `<competitor> alternative` and
+`<competitor> vs <you>`.
+
+People searching that are in-market and already comparing. It's also the standard
+play — check whether competitors have pages named after *you*.
+
+The section that makes it work is **"when they're the better choice."** Answer it
+honestly. A comparison page with no genuine concession reads as marketing and gets
+discounted; the honest one gets cited.
+
+### 3. Free tools
+
+One narrow job per page, free, no signup, its own URL.
+
+Why they work better than blog posts for a young domain: nobody links to your
+opinion, people do link to your calculator. Each tool is its own query surface and
+attracts editorial links that articles rarely do.
+
+**Picking them is the hard part.** Don't copy another company's tools — copy the
+*logic*. Ask: what does our user do repeatedly, by hand, that we could do for them
+in one screen? For a two-sided business, alternate between the two sides so
+neither starves.
+
+Requirements, all non-negotiable:
+- **Server-render the answer.** If the output only appears after JavaScript runs it
+  can't be ranked or cited. This is why most SaaS tool pages are invisible.
+- Its own H1 and a two-sentence explanation above the widget
+- FAQ block with schema
+- Conversion link placed right after the user gets their result
+- **A kill date.** Check at 90 days: any referring domains? Any conversions? If
+  neither, delete it. Otherwise you accumulate dead pages.
+
+### 4. Templated pages from data you already hold
+
+If the business has real per-combination data — markets, verticals, platforms,
+integrations — each combination can be a page.
+
+**The test every one must pass:** would someone landing here from search find
+something they couldn't get from the parent page? If no, it's a doorway page and
+will eventually be treated as one. Volume is not a strategy.
+
+That test kills most ideas, which is the point. Also set a floor: if a combination
+has no real data, the page doesn't exist. An empty template is worse than nothing.
+
+And fix 404 handling first. On a site where every URL returns 200, a templated
+section is impossible to debug.
+
+### 5. Getting cited off-site (this is most of GEO)
+
+On-site work makes a page *citable*. Off-site is what makes it *cited*. For a
+young domain this moves faster than link building, because AI engines will cite a
+new source immediately if the citation exists somewhere.
+
+- **Video is usually the biggest gap.** Almost nobody makes video answering
+  specific B2B questions, so competition is near zero, and video gets surfaced in
+  both AI answers and normal results. Title each video as the question, verbatim,
+  and put the full transcript in the description.
+- **Community answers, quality-gated.** Forum threads get cited heavily. Real
+  accounts, stated affiliation, genuinely useful answers. Five good contributions
+  beat ten thousand spam attempts — and the spam route gets the domain filtered,
+  which is very hard to undo. Never automate this.
+- **The help centre.** Keep it on a subdirectory, not a subdomain. It's
+  disproportionately cited because it answers narrow literal questions, and the
+  questions are already arriving via support. Cheapest AEO surface there is.
+- **Partner mentions.** Unlinked brand mentions still feed entity understanding.
+  Ask partners and customers. Never buy links.
+
+### 6. Defending your own brand name
+
+Check whether the brand name collides with a bigger entity — a public company, a
+different company with the same name, a common word. If searching the brand
+doesn't reliably return the site, that's the highest-intent traffic there is being
+lost.
+
+Fixes: consistent `Organization` schema with `alternateName`, the same naming
+across every profile the company controls, and a claimed knowledge panel.
+
+### Measuring the AI-search side
+
+The metric is **share of voice**: across a fixed set of questions, what percentage
+of answers mention you?
+
+Set it up as an experiment, not a dashboard:
+1. Write ~100 questions a real prospect would ask
+2. Record today's baseline across the major answer engines
+3. Change **one** thing
+4. Re-measure the *same* questions
+
+Two disciplines make it worth doing: keep the question set fixed, and change one
+variable at a time. Most published AI-search advice is untested, so your own
+experiment log will beat any external source — including this file.
+
+---
+
 ## Things to refuse
 
 - **Don't write 100% AI-generated content at volume.** It gets filtered, and it

@@ -20,6 +20,7 @@ requests so it never hammers a site.
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -28,6 +29,9 @@ from urllib.parse import quote, urlparse
 
 UA = "seo-growth-skill/1.0 (public SEO audit)"
 DELAY = 0.3  # be polite between requests
+
+# Where saved runs live, so you can see whether a fix actually worked.
+HISTORY_DIR = os.path.expanduser("~/.seo-growth")
 
 
 def get(url, timeout=20):
@@ -227,15 +231,21 @@ def audit(domain, locales=None, seed=None, conversion_path=""):
         slug = "/".join(rest) or "(homepage)"
         slug_locales[slug] = slug_locales.get(slug, 0) + 1
 
+    # Translation coverage only means something on a multi-language site. On a
+    # single-language site the honest answer is "not applicable" — reporting 0%
+    # would read as a failure when there's nothing to translate.
     n_locales = len(locale_seen)
-    fully = sum(1 for v in slug_locales.values() if v >= n_locales) if n_locales else 0
+    multilingual = n_locales >= 2
+    fully = sum(1 for v in slug_locales.values() if v >= n_locales) if multilingual else None
     out["sitemap"] = {
         "url_count": len(urls),
         "locales_found": sorted(locale_seen),
         "sections": dict(sorted(sections.items(), key=lambda kv: -kv[1])[:12]),
         "unique_slugs": len(slug_locales),
         "slugs_in_every_locale": fully,
-        "translation_complete_pct": round(100 * fully / len(slug_locales)) if slug_locales else None,
+        "translation_complete_pct": (
+            round(100 * fully / len(slug_locales)) if multilingual and slug_locales else None
+        ),
     }
 
     # --- 4. how do people actually arrive? ----------------------------------
@@ -328,17 +338,147 @@ def audit(domain, locales=None, seed=None, conversion_path=""):
     return out
 
 
+# ---------------------------------------------------------------------------
+# History: save a run, then compare it to the last one.
+#
+# This is the bit that turns an audit into a loop. A one-off audit tells you
+# what's broken. Two audits tell you whether the thing you shipped worked, which
+# is the actually useful question.
+# ---------------------------------------------------------------------------
+
+# The handful of numbers worth watching between runs.
+def key_metrics(run):
+    ps = run.get("page_summary") or {}
+    sm = run.get("sitemap") or {}
+    temp_hops = sum(e.get("temporary_hops", 0) for e in (run.get("entry_points") or {}).values())
+    return {
+        "unknown URLs 404 correctly": not run.get("soft_404", False),
+        "temporary redirects": temp_hops,
+        "sitemap URLs": sm.get("url_count"),
+        "translated into every locale (%)": sm.get("translation_complete_pct"),
+        "llms.txt present": (run.get("llms_txt") or {}).get("exists"),
+        "pages with FAQ schema": ps.get("with_faq_schema"),
+        "pages with no conversion link": ps.get("pages_with_no_conversion_link"),
+        "images missing alt text": ps.get("total_images_missing_alt"),
+        "avg page weight (KB)": ps.get("avg_html_kb"),
+    }
+
+
+def save_run(run):
+    folder = os.path.join(HISTORY_DIR, run["domain"])
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, time.strftime("%Y-%m-%d-%H%M") + ".json")
+    with open(path, "w") as f:
+        json.dump(run, f, indent=2, ensure_ascii=False)
+    return path
+
+
+def past_runs(domain):
+    folder = os.path.join(HISTORY_DIR, domain)
+    if not os.path.isdir(folder):
+        return []
+    out = []
+    for name in sorted(os.listdir(folder)):
+        if not name.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(folder, name)) as f:
+                out.append((name[:-5], json.load(f)))
+        except Exception:
+            continue  # a half-written file shouldn't break the history
+    return out
+
+
+def compare(old, new):
+    """What changed between two runs. Returns a list of readable lines."""
+    a, b = key_metrics(old), key_metrics(new)
+    lines = []
+    for label, new_val in b.items():
+        old_val = a.get(label)
+        if old_val == new_val or new_val is None:
+            continue
+        if isinstance(new_val, bool) or isinstance(old_val, bool):
+            lines.append(f"  {label}: {old_val} -> {new_val}")
+        elif isinstance(new_val, (int, float)) and isinstance(old_val, (int, float)):
+            diff = new_val - old_val
+            lines.append(f"  {label}: {old_val} -> {new_val} ({diff:+})")
+        else:
+            lines.append(f"  {label}: {old_val} -> {new_val}")
+    return lines
+
+
+def print_summary(run):
+    """Human-readable version. The JSON is for Claude; this is for eyeballs."""
+    m = key_metrics(run)
+    print(f"\n{run['domain']}  ({run['checked_at']})")
+    print("-" * 58)
+    for label, value in m.items():
+        if value is None:
+            value = "not measured"
+        print(f"  {label:34} {value}")
+
+    if run.get("notes"):
+        print("\n  Worth fixing:")
+        for n in run["notes"]:
+            print(f"    - {n}")
+
+    rq = run.get("real_queries") or {}
+    if rq:
+        print("\n  Real queries by market:")
+        for locale, queries in list(rq.items())[:8]:
+            if queries:
+                print(f"    {locale}: {', '.join(queries[:3])}")
+    print()
+
+
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    if not args:
-        print(__doc__)
-        sys.exit(1)
+    argv = sys.argv[1:]
 
     def opt(name):
         flag = f"--{name}"
-        return sys.argv[sys.argv.index(flag) + 1] if flag in sys.argv else None
+        return argv[argv.index(flag) + 1] if flag in argv else None
 
-    domain = args[0].replace("https://", "").replace("http://", "").rstrip("/")
+    def has(name):
+        return f"--{name}" in argv
+
+    # Flag values look like positional args, so drop anything that follows a flag.
+    value_flags = {"--locales", "--seed", "--conversion"}
+    positional, skip = [], False
+    for a in argv:
+        if skip:
+            skip = False
+            continue
+        if a in value_flags:
+            skip = True
+            continue
+        if not a.startswith("--"):
+            positional.append(a)
+
+    if not positional:
+        print(__doc__)
+        sys.exit(1)
+
+    domain = positional[0].replace("https://", "").replace("http://", "").rstrip("/")
+
+    # --history just reads what's already saved. No network needed.
+    if has("history"):
+        runs = past_runs(domain)
+        if not runs:
+            print(f"No saved runs for {domain} yet. Run with --save first.")
+            return
+        print(f"\n{len(runs)} saved run(s) for {domain}:\n")
+        for stamp, run in runs:
+            m = key_metrics(run)
+            print(f"  {stamp}  404s ok: {m['unknown URLs 404 correctly']}  "
+                  f"temp redirects: {m['temporary redirects']}  "
+                  f"FAQ pages: {m['pages with FAQ schema']}")
+        if len(runs) >= 2:
+            print(f"\nChange from {runs[-2][0]} to {runs[-1][0]}:")
+            changed = compare(runs[-2][1], runs[-1][1])
+            print("\n".join(changed) if changed else "  nothing changed")
+        print()
+        return
+
     locales = (opt("locales") or "").split(",") if opt("locales") else None
     result = audit(
         domain,
@@ -346,7 +486,29 @@ def main():
         seed=opt("seed"),
         conversion_path=opt("conversion") or "",
     )
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+
+    if has("save"):
+        previous = past_runs(domain)
+        path = save_run(result)
+        if has("summary"):
+            print_summary(result)
+        else:
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+        print(f"\nSaved to {path}")
+        if previous:
+            stamp, last = previous[-1]
+            changed = compare(last, result)
+            print(f"\nChanged since {stamp}:")
+            print("\n".join(changed) if changed else "  nothing changed")
+        else:
+            print("\nFirst saved run — this is the baseline. Run again after you ship a fix.")
+        print()
+        return
+
+    if has("summary"):
+        print_summary(result)
+    else:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

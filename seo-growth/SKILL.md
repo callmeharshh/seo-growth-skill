@@ -37,6 +37,9 @@ mac or linux.
 | `--conversion` | The path that counts as converting (`/en/book-call`). Checks whether pages actually link to it. |
 | `--seed` | A short head term (`ugc creator`, not `best ugc creator platform 2026`). Finds the real query in every market. Short seeds return native phrasing; long ones return English long-tails. |
 | `--locales` | Limit which locales to check. Defaults to whatever the sitemap has. |
+| `--summary` | Human-readable output instead of JSON. Use when the person wants to read it themselves. |
+| `--save` | Save the run, and print what changed since the last one. This is the loop. |
+| `--history` | Show every saved run for a domain and the change between the last two. No network. |
 
 ## What to do with the output
 
@@ -65,6 +68,16 @@ skill: they asked for an audit, they get a file they can commit.
 **5. If they want content in more than one language**, use the `real_queries`
 data. Read the keyword section of the playbook first — translating the target
 keyword is the mistake this skill exists to prevent.
+
+**6. If they ask "what else should we do?"** rather than "what's broken?", they've
+moved past repair work. The playbook's *Bigger plays* section covers that: filling
+gaps in existing content, comparison pages, free tools, templated pages, off-site
+citations, brand-name defence. Suggest in that order — each is cheaper than the
+next.
+
+**7. Always suggest `--save` on the first run.** A single audit says what's broken.
+Two audits say whether the fix worked, which is the question that actually
+matters. One run is a baseline; the value shows up on the second.
 
 ## Talking about the numbers honestly
 
@@ -101,9 +114,18 @@ done
 
 Two things that get genuinely useful at that point:
 
-**Track it over time.** Save the JSON with a date and diff the next run. The
-interesting question isn't "what's our score" — it's "what changed since we
-shipped that fix, and did it work?"
+**Track it over time.** That's what `--save` is for:
+
+```bash
+python3 scripts/audit.py site.com --save          # baseline
+# ...ship a fix...
+python3 scripts/audit.py site.com --save          # prints what changed
+python3 scripts/audit.py site.com --history       # the whole timeline
+```
+
+Runs are stored as dated JSON in `~/.seo-growth/<domain>/`. The interesting
+question isn't "what's our score" — it's "what changed since we shipped that fix,
+and did it work?"
 
 **Run it on competitors too.** Same script, same checks, so "they're better at
 this" becomes a measured difference instead of a hunch. It also shows what a

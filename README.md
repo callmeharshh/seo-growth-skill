@@ -40,11 +40,19 @@ check 8x.social and find me the real German and Dutch keywords for "ugc creator"
 audit sideshift.app and compare it to 8x.social
 ```
 
-Or run the script directly if you'd rather see raw numbers:
+Or run the script directly:
 
 ```bash
-python3 ~/.claude/skills/seo-growth/scripts/audit.py www.8x.social \
-  --conversion /en/book-call --seed "ugc creator"
+cd ~/.claude/skills/seo-growth
+
+# readable report
+python3 scripts/audit.py www.8x.social --conversion /en/book-call --summary
+
+# save it, and see what changed since last time
+python3 scripts/audit.py www.8x.social --conversion /en/book-call --save
+
+# the whole timeline for a domain
+python3 scripts/audit.py www.8x.social --history
 ```
 
 ## What it checks
@@ -93,19 +101,40 @@ So the skill **looks up** each market's real query instead of translating it. Th
 data comes from Google's own autocomplete — free, no key, and it only ever
 suggests things people actually type.
 
+## Tracking whether a fix actually worked
+
+One audit tells you what's broken. Two tell you whether the thing you shipped
+worked, which is the question that actually matters.
+
+```bash
+python3 scripts/audit.py site.com --save     # baseline
+# ship a fix
+python3 scripts/audit.py site.com --save     # prints what moved
+```
+
+```
+Changed since 2026-07-31-2212:
+  unknown URLs 404 correctly: False -> True
+  temporary redirects: 4 -> 0 (-4)
+  pages with FAQ schema: 3 -> 6 (+3)
+  images missing alt text: 343 -> 120 (-223)
+```
+
+Runs are saved as dated JSON in `~/.seo-growth/<domain>/`. `--history` shows the
+whole timeline.
+
 ## Across a portfolio
 
 Every domain is just an argument, so a loop covers all of them:
 
 ```bash
 for d in site-one.com site-two.com site-three.com; do
-  python3 audit.py "$d" > "audit-$d-$(date +%F).json"
+  python3 scripts/audit.py "$d" --save --summary
 done
 ```
 
-Save with a date and diff the next run — then you're answering "did that fix
-work?" instead of just "what's broken today". Run it on competitors too; same
-checks, so comparisons are measured rather than guessed.
+Run it on competitors too — same checks, so comparisons are measured rather than
+guessed.
 
 ## What it can't do
 
