@@ -1,7 +1,7 @@
 ---
 name: seo-growth
-description: Audit any public website's SEO and AI-search setup, then generate the fix. Point it at a domain and it checks 404 handling, redirects, sitemap and translation coverage, FAQ/schema markup, keyword usage, conversion links, and finds real per-market search queries via Google autocomplete. Use when someone says "audit this domain", "check the SEO on X", "why isn't this site ranking", "find keywords for X", "write an SEO post about X", or asks about AEO/GEO/AI search visibility. Works on any number of domains — nothing is hardcoded to one site.
-version: 1.0.0
+description: A search-growth system for a portfolio of websites. Finds keywords you can actually win by diffing your sitemap against competitors' sitemaps, writes complete publishable blog posts targeting them, audits technical SEO and AI-search readiness, tracks every metric over time so you can tell whether a fix worked, and builds a dashboard across all your domains. Use when someone says "find keywords for X", "write an SEO blog post", "what should we write next", "audit this domain", "why isn't this ranking", "track our SEO", or asks about a content plan, keyword gaps, AEO or GEO. Configured per property in portfolio.json — adding a domain is a config entry, not new code.
+version: 2.0.0
 author: Harsh
 license: MIT
 platforms: [macos, linux]
@@ -9,143 +9,157 @@ platforms: [macos, linux]
 
 # SEO Growth
 
-Point this at a domain. It measures what's actually there, tells you the few
-things worth fixing in order, and writes the file that fixes them.
+A loop, not a report:
 
-Built around one split: **the script measures, you judge.** `audit.py` only
-reports numbers. `references/playbook.md` holds what those numbers mean. That way
-the facts can't be argued with, and the advice isn't frozen into a scoring
-formula nobody can inspect.
-
-## How to run it
-
-```bash
-python3 scripts/audit.py <domain> [--conversion /path] [--seed "keyword"] [--locales en,de,fr]
+```
+find winnable keywords  ->  write the post  ->  check it  ->  ship
+        ^                                                      |
+        |                                                      v
+   track what moved  <-  audit  <-  save a dated snapshot  <----
 ```
 
-Real example:
+Everything is driven by `portfolio.json`. Adding a domain is an entry in that
+file; nothing else changes. No dependencies, no API keys — Python 3 and curl.
 
-```bash
-python3 scripts/audit.py www.8x.social --conversion /en/book-call --seed "ugc creator"
-```
+## The four things it does
 
-No dependencies, no API keys, no install. Python 3 and curl, both already on any
-mac or linux.
-
-| Flag | What it does |
+| Want | Run |
 |---|---|
-| `--conversion` | The path that counts as converting (`/en/book-call`). Checks whether pages actually link to it. |
-| `--seed` | A short head term (`ugc creator`, not `best ugc creator platform 2026`). Finds the real query in every market. Short seeds return native phrasing; long ones return English long-tails. |
-| `--locales` | Limit which locales to check. Defaults to whatever the sitemap has. |
-| `--summary` | Human-readable output instead of JSON. Use when the person wants to read it themselves. |
-| `--save` | Save the run, and print what changed since the last one. This is the loop. |
-| `--history` | Show every saved run for a domain and the change between the last two. No network. |
-| `--dashboard` | Build one HTML file covering every saved domain. No domain argument needed. |
+| Keywords we can win + a content plan | `python3 scripts/keywords.py --domain D --seeds "..." --competitors A,B` |
+| A finished blog post | you write it — read `references/write-blog.md` first |
+| Grade a post before it ships | `python3 scripts/check_post.py post.md` |
+| What's technically broken | `python3 scripts/audit.py D --summary` |
+| The whole portfolio, every step | `python3 scripts/run_portfolio.py` |
+| Dashboard across all domains | `python3 scripts/audit.py --dashboard` |
 
-## What to do with the output
+`run_portfolio.py` is the one to reach for by default. It audits every property,
+saves a dated snapshot, diffs against last time, finds winnable keywords, writes a
+content plan, and rebuilds the dashboard. Put it on a weekly cron and the loop runs
+itself.
 
-**1. Run the audit.** If the user gave you a domain and nothing else, just run it —
-don't interrogate them first. Guess `--conversion` from the site if it's obvious
-(`/book-call`, `/signup`, `/pricing`, `/demo`) and say what you guessed.
+---
 
-**2. Read `references/playbook.md`.** It has a priority order and it's a
-dependency chain, not a preference. Soft-404s make every other number unreliable,
-so that goes first regardless of what else you found.
+## 1. Finding keywords you can win
 
-**3. Report the 3–5 things that matter.** Not everything. For each one:
+```bash
+python3 scripts/keywords.py --domain www.8x.social \
+  --seeds "ugc creator,ugc marketing" \
+  --competitors sideshift.app,www.shortimize.com
+```
 
-- what's wrong, in one sentence
-- why it costs them something
-- the command or file that fixes it
+**How "winnable" is decided.** Not by a guessed difficulty number. By three things
+that are free and observable:
 
-Every claim has to trace to a number in the JSON. If it's not measured, say you
-don't have it. **Do not fill gaps with plausible-sounding figures** — the user
-can't tell your guess from your measurement, so a guess poisons the whole report.
+1. **Is the query real?** Google autocomplete only suggests what people actually
+   type. Expanding a seed across the alphabet turns one seed into 200-350 confirmed
+   queries — that's where the winnable long tail lives.
+2. **Do we already cover it?** Matched against our sitemap. If yes, it's an audit
+   item, not an opportunity.
+3. **Has a competitor proven it?** Matched against their sitemaps. A competitor
+   built a page for it and we have nothing → demand is proven and the gap is ours.
+   **This is the strongest free signal there is.**
 
-**4. Offer to generate the fix.** Not a description of the fix — the file, with
-the path it belongs at. Templates are in the playbook. This is the point of the
-skill: they asked for an audit, they get a file they can commit.
+The output is a `content_plan`: clustered, one page per cluster, with the head term
+as the primary keyword and the cluster's other queries as things that page should
+also answer. Write one page per cluster, not one per query.
 
-**5. If they want content in more than one language**, use the `real_queries`
-data. Read the keyword section of the playbook first — translating the target
-keyword is the mistake this skill exists to prevent.
+Watch for `is_category: true`. That means many queries matched one competitor page,
+so it's a whole topic area rather than a single post — split it.
 
-**6. If they ask "what else should we do?"** rather than "what's broken?", they've
-moved past repair work. The playbook's *Bigger plays* section covers that: filling
-gaps in existing content, comparison pages, free tools, templated pages, off-site
-citations, brand-name defence. Suggest in that order — each is cheaper than the
-next.
+**Seed length matters.** Use short head terms (`ugc creator`, not `best ugc creator
+platform 2026`). Long seeds return English long-tails; short ones return the real
+phrasing, including in other languages.
 
-**7. If they want to see it rather than read it**, run `--dashboard`. It writes a
-single self-contained HTML file covering every domain that's been saved, with one
-row each and a "changed since last run" column. No server, no build — they open
-the file. Tell them the path.
+## 2. Writing the post
 
-**8. Always suggest `--save` on the first run.** A single audit says what's broken.
-Two audits say whether the fix worked, which is the question that actually
-matters. One run is a baseline; the value shows up on the second.
+**Read `references/write-blog.md` before writing.** The short version:
 
-## Talking about the numbers honestly
+- Write the **finished post**. Real prose under every heading. No `[WRITE: …]`
+  placeholders — if you leave them, the tool did nothing.
+- Target the whole cluster, not just the primary keyword.
+- Keyword in the title, the slug, and at least one H2. Roughly once per 250 words.
+- Open with a blockquote that answers the query in under 45 words. That's the block
+  an AI engine lifts when it cites you.
+- 4+ FAQ questions as H3s ending in `?`, using the cluster's real queries.
+- One internal link to the conversion path.
+- **Never invent statistics, client names, or earnings figures.** Mark anything you
+  can't source as `[confirm: …]`.
 
-The audit fetches public pages over plain HTTP. That bounds what it can know, and
-the boundaries matter:
+`examples/ugc-creator-jobs.md` in this repo is a real one that passes all 14 checks.
 
-- **Autocomplete gives real queries, never volume.** Say "real query, volume
-  unknown". Never a number.
+## 3. Checking it
+
+```bash
+python3 scripts/check_post.py draft.md
+```
+
+Always run this and show the output. It exits 1 on a blocking failure, so it works
+in a pre-commit hook.
+
+The reason this is a separate script rather than you self-assessing: a model asked
+to write *and* grade its own work will say the work is fine. A script that counts
+words has no such problem. Don't hand over a post that fails its own check.
+
+## 4. Auditing and tracking
+
+```bash
+python3 scripts/audit.py www.8x.social --conversion /en/book-call --summary
+python3 scripts/audit.py www.8x.social --save      # baseline, then diff next time
+python3 scripts/audit.py www.8x.social --history   # the timeline
+python3 scripts/audit.py --dashboard               # all domains, one HTML file
+```
+
+Checks 404 handling, redirect chains and whether permanent moves are served as
+permanent, sitemap and per-locale translation coverage, FAQ/Article/Organization
+schema, on-page structure, conversion links, and `llms.txt`.
+
+**Always suggest `--save`.** One audit says what's broken. Two say whether the fix
+worked, which is the question that matters. `run_portfolio.py` does this for every
+property automatically.
+
+Fix in the order `references/playbook.md` gives — it's a dependency chain, not a
+preference. Soft-404s make every other number unreliable, so that goes first.
+
+---
+
+## How to actually use this in conversation
+
+**"What should we write next?"** → `run_portfolio.py`, then read the content plan,
+then offer to write the top cluster. Don't stop at the list; the list is not the
+deliverable.
+
+**"Write a post about X"** → run `keywords.py` first. A post aimed at a phrase
+nobody searches is wasted no matter how well written. If X turns out to be already
+covered, say so and offer the nearest gap instead.
+
+**"Audit this site"** → `audit.py --summary`, report the 3-5 things that matter in
+priority order, each with the command that verifies it, then offer to generate the
+fix.
+
+**Anything about a portfolio, or more than one domain** → `run_portfolio.py` and the
+dashboard.
+
+## Being honest about the numbers
+
+The hard boundaries, and they matter more than the features:
+
+- **No search volume. Ever.** Autocomplete proves a query is real, not how big it
+  is. Say "volume unknown". Never a number.
+- **Coverage matching is token overlap on URL paths.** Good enough to find gaps,
+  not a substitute for looking. Spot-check the competitor page before writing.
 - **Page weight and response time are not Core Web Vitals.** Vitals need a real
-  browser. These are the document-level causes of bad vitals. Point at PageSpeed
-  Insights for actual vitals.
-- **It samples about 6 pages, not the whole site.** Page-level counts are "of the
-  sample". Sitemap-level facts (URL count, locale coverage) are complete.
-- **Backlinks aren't measured at all.** That needs a paid API.
+  browser. These are the document-level causes.
+- **`audit.py` samples ~6 pages.** Page-level counts are "of the sample". Sitemap
+  facts are complete.
+- **No backlink data.** Needs a paid API.
+
+If a number isn't in the output, say you don't have it. A guess the user can't
+distinguish from a measurement poisons everything else in the report.
 
 ## Constraints
 
-Public URLs only. GET only. No cookies or credentials sent, an honest
-User-Agent, and a delay between requests so it never hammers a site. It reads;
-it never changes anything.
+Public URLs only, GET only, no cookies or credentials, honest User-Agent, delay
+between requests. It reads; it never changes a site it's auditing.
 
-Nothing gets published automatically. Generated files are drafts — say so, and
-say what a human still needs to check.
-
-## Running it across a portfolio
-
-Every domain is just an argument, so a loop is the whole feature:
-
-```bash
-for d in site-one.com site-two.com site-three.com; do
-  python3 scripts/audit.py "$d" > "audit-$d.json"
-done
-```
-
-Two things that get genuinely useful at that point:
-
-**Track it over time.** That's what `--save` is for:
-
-```bash
-python3 scripts/audit.py site.com --save          # baseline
-# ...ship a fix...
-python3 scripts/audit.py site.com --save          # prints what changed
-python3 scripts/audit.py site.com --history       # the whole timeline
-```
-
-Runs are stored as dated JSON in `~/.seo-growth/<domain>/`. The interesting
-question isn't "what's our score" — it's "what changed since we shipped that fix,
-and did it work?"
-
-**See the whole portfolio at once.**
-
-```bash
-for d in site-one.com site-two.com site-three.com; do
-  python3 scripts/audit.py "$d" --save
-done
-python3 scripts/audit.py --dashboard   # -> ~/.seo-growth/dashboard.html
-```
-
-One row per domain, side by side, with what changed since the last run. It's a
-plain HTML file, so it opens locally or drops onto any static host.
-
-**Run it on competitors too.** Same script, same checks, so "they're better at
-this" becomes a measured difference instead of a hunch. It also shows what a
-healthy site in your space looks like, which is a better target than a generic
-best practice.
+Nothing publishes automatically. Every generated post is a draft with
+`reviewRequired: true`, and you say what a human still needs to confirm.

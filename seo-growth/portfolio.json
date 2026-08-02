@@ -1,0 +1,41 @@
+{
+  "_comment": [
+    "The properties you own, the competitors you measure against, and the topics",
+    "you want to win. This file is the only thing that changes when you add a",
+    "domain — every script takes it as input, so the 11th property is a config",
+    "entry, not new code.",
+    "",
+    "Everything here is public information. Nothing is scraped from a logged-in",
+    "session and no credentials are involved."
+  ],
+
+  "properties": [
+    {
+      "domain": "www.8x.social",
+      "name": "8x Social",
+      "conversion_path": "/en/book-call",
+      "content_path": "content/blog",
+      "default_locale": "en",
+      "markets": ["us", "gb", "de", "fr", "in", "br"],
+      "seeds": [
+        "ugc creator",
+        "ugc marketing",
+        "creator platform",
+        "user generated content"
+      ],
+      "competitors": [
+        "sideshift.app",
+        "www.shortimize.com",
+        "www.socialgrowthengineers.com"
+      ],
+      "notes": "Two-sided marketplace. Brands are the demand side, creators the supply side. Autocomplete shows most non-US 'ugc creator' queries are job-seeking, which is supply side."
+    }
+  ],
+
+  "_adding_a_property": [
+    "Copy a block above and change the values. Then:",
+    "  python3 scripts/run_portfolio.py",
+    "It will audit every property, find winnable keywords for each, save a dated",
+    "snapshot, and rebuild the dashboard."
+  ]
+}

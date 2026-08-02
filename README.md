@@ -1,194 +1,159 @@
-# seo-growth — a Claude skill
+# seo-growth — a search-growth system as a Claude skill
 
-Point Claude at any domain. It audits the site's SEO and AI-search setup, tells
-you the few things worth fixing in order, and writes the file that fixes them.
+Finds keywords you can actually win, writes the post, checks it, tracks whether it
+worked. Across every domain you own.
 
-Built for the 8x assignment: one reusable thing that works on every domain instead
-of a separate research process per site.
+Not an audit tool. The audit is one of four steps.
 
-## Install (30 seconds)
+## The loop
+
+```
+find winnable keywords  ->  write the post  ->  check it  ->  ship
+        ^                                                      |
+        |                                                      v
+   track what moved  <-  audit  <-  save a dated snapshot  <----
+```
+
+## Install
 
 ```bash
 git clone https://github.com/callmeharshh/seo-growth-skill.git
 cp -r seo-growth-skill/seo-growth ~/.claude/skills/
 ```
 
-That's it. Restart Claude Code and it's available.
+No dependencies. No API keys. Python 3 and curl. Restart Claude Code and ask it
+"what should we write next for 8x.social".
 
-To check it loaded:
-
-```bash
-ls ~/.claude/skills/seo-growth
-```
-
-No dependencies. No API keys. No signup. Python 3 and curl, which you already
-have.
-
-## Use it
-
-Just ask Claude in plain English:
-
-```
-audit the SEO on www.8x.social
-```
-
-```
-check 8x.social and find me the real German and Dutch keywords for "ugc creator"
-```
-
-```
-audit sideshift.app and compare it to 8x.social
-```
-
-Or run the script directly:
+## One command for the whole portfolio
 
 ```bash
-cd ~/.claude/skills/seo-growth
-
-# readable report
-python3 scripts/audit.py www.8x.social --conversion /en/book-call --summary
-
-# save it, and see what changed since last time
-python3 scripts/audit.py www.8x.social --conversion /en/book-call --save
-
-# the whole timeline for a domain
-python3 scripts/audit.py www.8x.social --history
-
-# a dashboard covering every domain you've saved
-python3 scripts/audit.py --dashboard
+python3 scripts/run_portfolio.py
 ```
 
-## What it checks
-
-| | |
-|---|---|
-| **404 handling** | Do URLs that don't exist actually return 404, or a fake 200? |
-| **Redirects** | Every hop, and whether permanent moves are served as permanent |
-| **Sitemap** | URL count, which locales exist, what sections the site has |
-| **Translation coverage** | How many pages exist in *every* locale vs only some |
-| **Schema** | FAQ, Article, Organization markup — the AI-citation surface |
-| **On-page** | Titles, descriptions, H1/H2 structure, word counts, alt text |
-| **Conversion** | Do content pages actually link to the thing you want people to do? |
-| **Real keywords** | The actual query people type, per market, from Google autocomplete |
-| **llms.txt** | The emerging convention for AI crawlers |
-
-## How it's put together
+For every property in `portfolio.json`: audit it, save a dated snapshot, diff
+against last run, find winnable keywords, write a content plan, rebuild the
+dashboard. On a weekly cron the loop runs itself:
 
 ```
-seo-growth/
-├── SKILL.md                  what Claude does with the results
-├── scripts/audit.py          measures a domain, prints JSON
-└── references/playbook.md    what each finding means + content templates
+0 9 * * 1  cd ~/.claude/skills/seo-growth && python3 scripts/run_portfolio.py
 ```
 
-The split is the point: **the script measures, Claude judges.** Numbers can't be
-argued with, and the advice isn't frozen into a scoring formula nobody can see
-inside. Change your mind about what matters? Edit the playbook — no code change.
+Adding your 11th domain is an entry in `portfolio.json`. Nothing else changes.
 
-## The one non-obvious thing in here
+## The interesting part: how "winnable" is decided
 
-Translating an SEO page is two different jobs.
+Not with a guessed difficulty score. With three things that are free and
+observable:
 
-**Body text** — machine translation is fine.
-**The target keyword** — machine translation is *wrong*.
+1. **Is the query real?** Google autocomplete only suggests what people actually
+   type. Expanding one seed across the alphabet returns 200-350 confirmed queries.
+2. **Do we already cover it?** Matched against your sitemap.
+3. **Has a competitor proven it?** Matched against theirs. **A competitor built a
+   page for it and you have none** — that is the strongest free signal available.
 
-Germans don't search a translation of "what is a UGC creator". They search
-`ugc creator werden` — the English loan word plus the German verb for "become".
-Dutch is `worden`. Turkish is `nedir`. Polish is `co to`.
+Real output for 8x.social, in 50 seconds:
 
-Translate the keyword literally and you've built a page targeting a phrase nobody
-types. You pay for the translation and get nothing, and there's no obvious signal
-telling you why.
+```
+260 real queries · 88 gaps · 128 uncontested · 44 already covered
 
-So the skill **looks up** each market's real query instead of translating it. That
-data comes from Google's own autocomplete — free, no key, and it only ever
-suggests things people actually type.
+CONTENT PLAN — one page per cluster, highest-leverage first
+  1. ugc creator jobs   [110]
+     supply-side · 6 queries in this cluster
+     also answers: ugc creator jobs for beginners, ugc creator jobs no experience,
+                   ugc creator jobs remote, ugc creator jobs nz
+     competitor has: www.shortimize.com/blog/ugc-creator-jobs
+```
 
-## Tracking whether a fix actually worked
+Clustered, so you write one page per topic rather than six thin ones. The head term
+is found by containment — "ugc creator jobs" is inside "ugc creator jobs uk", so it
+is obviously the topic.
 
-One audit tells you what's broken. Two tell you whether the thing you shipped
-worked, which is the question that actually matters.
+## It writes the whole post
+
+Claude writes it, following `references/write-blog.md`. Complete prose, no
+`[WRITE: …]` placeholders. `examples/ugc-creator-jobs.md` is a real one: 1,142
+words, targets the full cluster, and passes every check.
+
+Then a script grades it:
 
 ```bash
-python3 scripts/audit.py site.com --save     # baseline
+python3 scripts/check_post.py examples/ugc-creator-jobs.md
+```
+
+```
+1142 words · target keyword "ugc creator jobs" used 14x · 6 H2s / 7 H3s
+  [PASS] Keyword in at least one H2
+  [PASS] Answer-first opening
+  [PASS] FAQ section
+  ...
+  14/14 checks passed — ready to publish.
+```
+
+That split is deliberate. A model asked to write *and* grade its own work will tell
+you the work is fine. A script that counts words won't. It exits 1 on failure, so it
+drops into a pre-commit hook.
+
+## Tracking whether a fix worked
+
+```bash
+python3 scripts/audit.py site.com --save   # baseline
 # ship a fix
-python3 scripts/audit.py site.com --save     # prints what moved
+python3 scripts/audit.py site.com --save   # prints what moved
 ```
 
 ```
-Changed since 2026-07-31-2212:
+Changed since 2026-08-02-1947:
   unknown URLs 404 correctly: False -> True
   temporary redirects: 4 -> 0 (-4)
   pages with FAQ schema: 3 -> 6 (+3)
-  images missing alt text: 343 -> 120 (-223)
 ```
 
-Runs are saved as dated JSON in `~/.seo-growth/<domain>/`. `--history` shows the
-whole timeline.
+`--dashboard` writes one self-contained 5KB HTML file covering every domain, with a
+filter and a "changed since last run" column.
 
-## The dashboard
+## What it found on 8x.social
 
-```bash
-for d in 8x.social shortimize.com sideshift.app; do
-  python3 scripts/audit.py "$d" --save
-done
-python3 scripts/audit.py --dashboard
+- unknown URLs return 200 instead of 404, so `/en/tools` and `/llms.txt` look real
+  and aren't
+- 18 of 219 pages exist in all 19 locales — about 8%
+- apex to www to /en is two redirects, both 307 rather than 301
+- FAQ schema on some pages, not others
+- 343 images with no alt text
+
+## Files
+
 ```
-
-Writes one self-contained HTML file — `~/.seo-growth/dashboard.html`. One row per
-domain, side by side:
-
+seo-growth/
+├── SKILL.md                    what Claude does with each command
+├── portfolio.json              your domains, competitors, seed topics
+├── scripts/
+│   ├── keywords.py             winnable keywords + content plan
+│   ├── check_post.py           grades a post, exits 1 on failure
+│   ├── audit.py                technical + AI-search audit, snapshots, dashboard
+│   └── run_portfolio.py        the whole loop across every property
+├── references/
+│   ├── write-blog.md           how to write a post that passes
+│   └── playbook.md             what each finding means, and the bigger plays
+└── examples/
+    └── ugc-creator-jobs.md     a real post, 14/14 checks
 ```
-Domain               Status              404s  Temp     Translated  FAQ    Changed
-                                              redirects    %       pages  since last
-www.8x.social        2/6 checks passing   NO      4          8       3     no change
-sideshift.app        3/6 checks passing   yes     0         n/a      0     no change
-www.shortimize.com   4/6 checks passing   yes     0         n/a      1     no change
-```
-
-Under the table, a "what to fix" list per domain with the exact verification
-command.
-
-No server, no build step, no dependencies — it's a 4KB HTML file. Open it by
-double-clicking, or drop it on any static host if you want it shared.
-
-"Status" is deliberately dumb: how many of six checks are currently in a good
-state. No weighting, no hidden formula — you can recount it from the row. A blank
-cell means the check couldn't be measured, which is not the same as passing.
-
-## Across a portfolio
-
-Every domain is just an argument, so a loop covers all of them:
-
-```bash
-for d in site-one.com site-two.com site-three.com; do
-  python3 scripts/audit.py "$d" --save --summary
-done
-```
-
-Run it on competitors too — same checks, so comparisons are measured rather than
-guessed.
 
 ## What it can't do
 
-Worth being straight about the edges:
-
-- **Autocomplete gives real queries but no search volume.** It reports "volume
-  unknown" instead of making a number up.
-- **Page weight and response time are not Core Web Vitals.** Vitals need a real
-  browser — these are the document-level causes of bad vitals. Use PageSpeed
-  Insights for the real thing.
-- **It samples ~6 pages**, not the whole site. Sitemap-level facts are complete;
-  page-level counts are "of the sample".
-- **No backlink data.** That needs a paid API.
+- **No search volume.** Autocomplete proves a query is real, not how big it is. It
+  reports "volume unknown" rather than inventing a number.
+- **Coverage matching is token overlap on URL paths.** Good enough to find gaps, not
+  a substitute for opening the competitor page. Spot-check before writing.
+- **Speed numbers are document weight and response time, not Core Web Vitals.**
+  Vitals need a real browser.
+- **No backlink data.** Needs a paid API.
 
 ## Safety
 
-Public URLs only, GET only, no cookies or credentials, honest User-Agent, and a
-delay between requests so it never hammers a site. It reads and never writes
-anything to the site it's auditing. Generated content is always a draft.
+Public URLs only, GET only, no credentials, honest User-Agent, delay between
+requests. Reads only. Every generated post is a draft marked `reviewRequired: true`.
 
 ---
 
-MIT. Built by Harsh, with AI assistance — which felt like the right way to build
-a tool that's meant to be used from inside an AI coding agent.
+MIT. Built by Harsh, with AI assistance — which felt right for a tool meant to run
+inside an AI coding agent.
