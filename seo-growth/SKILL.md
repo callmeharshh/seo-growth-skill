@@ -1,7 +1,7 @@
 ---
 name: seo-growth
-description: A search-growth system for a portfolio of websites. Finds keywords you can actually win by diffing your sitemap against competitors' sitemaps, writes complete publishable blog posts targeting them, audits technical SEO and AI-search readiness, tracks every metric over time so you can tell whether a fix worked, and builds a dashboard across all your domains. Use when someone says "find keywords for X", "write an SEO blog post", "what should we write next", "audit this domain", "why isn't this ranking", "track our SEO", or asks about a content plan, keyword gaps, AEO or GEO. Configured per property in portfolio.json — adding a domain is a config entry, not new code.
-version: 2.0.0
+description: A search-growth system for a portfolio of websites. Finds keywords you can actually win by diffing your sitemap against competitors' sitemaps, per market and per language. Writes complete publishable blog posts, generates deployable free-tool pages, builds the shared target list (Domain/Market/Audience/Query/Intent/Evidence/Asset/Priority/Status), audits technical SEO and AI-search readiness, tracks every metric over time so you can tell whether a fix worked, and builds a dashboard across all your domains. Use when someone says "find keywords for X", "write an SEO blog post", "what should we write next", "audit this domain", "why isn't this ranking", "track our SEO", or asks about a content plan, keyword gaps, AEO or GEO. Configured per property in portfolio.json — adding a domain is a config entry, not new code.
+version: 3.0.0
 author: Harsh
 license: MIT
 platforms: [macos, linux]
@@ -21,7 +21,7 @@ find winnable keywords  ->  write the post  ->  check it  ->  ship
 Everything is driven by `portfolio.json`. Adding a domain is an entry in that
 file; nothing else changes. No dependencies, no API keys — Python 3 and curl.
 
-## The four things it does
+## What it does
 
 | Want | Run |
 |---|---|
@@ -30,6 +30,8 @@ file; nothing else changes. No dependencies, no API keys — Python 3 and curl.
 | Grade a post before it ships | `python3 scripts/check_post.py post.md` |
 | What's technically broken | `python3 scripts/audit.py D --summary` |
 | The whole portfolio, every step | `python3 scripts/run_portfolio.py` |
+| The shared target list, per market | `python3 scripts/target_list.py --markets --csv targets.csv` |
+| Build a free-tool page | `python3 scripts/make_tool.py --all-markets --out out/` |
 | Dashboard across all domains | `python3 scripts/audit.py --dashboard` |
 
 `run_portfolio.py` is the one to reach for by default. It audits every property,
@@ -121,6 +123,41 @@ Fix in the order `references/playbook.md` gives — it's a dependency chain, not
 preference. Soft-404s make every other number unreliable, so that goes first.
 
 ---
+
+## 5. The target list, and why it runs per market
+
+```bash
+python3 scripts/target_list.py --markets --csv targets.csv
+```
+
+Outputs exactly the nine columns the brief specifies: Domain, Market, Audience,
+Query/topic, Intent, Evidence, Recommended asset, Priority, Status.
+
+Two of those are **Market** and **Audience**, which is why this runs per market
+rather than once per domain. The same seed returns a different audience in each
+country. On 8x.social: in the US "ugc creator" is category research; in Germany,
+Brazil and Turkey it is overwhelmingly people looking for the work — *werden*,
+*vagas*, *iş ilanları*. Same domain, same seed, different audience, different
+asset, different conversion path. A single-market run reports none of it.
+
+For a two-sided marketplace that distinction decides the page: supply-side queries
+route to creator signup, demand-side to the sales conversion.
+
+## 6. Free tools
+
+```bash
+python3 scripts/make_tool.py --all-markets --out out/tools
+```
+
+Writes a real, deployable, self-contained HTML page per market. The answer is
+rendered in the HTML before JavaScript runs — a tool whose output only appears
+after JS cannot be ranked or cited, and that is why most SaaS tool pages are
+invisible. Ships with FAQPage + WebApplication schema and a conversion link.
+
+**It verifies the target keyword against autocomplete first and refuses to build a
+page for a keyword nobody searches.** That guard exists because a Turkish
+calculator was drafted around a keyword that turned out not to be real. Turkey
+wants an explainer, not a calculator — different market, different asset.
 
 ## How to actually use this in conversation
 

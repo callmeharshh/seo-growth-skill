@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cuánto Gana un Creador UGC: Calculadora</title>
+<meta name="description" content="Calcula cuánto ganarías como creador UGC, a partir de tu propia tarifa por vídeo y de cuántos vídeos puedes entregar.">
+<link rel="canonical" href="/es/tools/cuanto-gana-un-creador-ugc">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "¿Cuánto gana un creador UGC?", "applicationCategory": "FinanceApplication", "operatingSystem": "Any", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "description": "Calcula cuánto ganarías como creador UGC, a partir de tu propia tarifa por vídeo y de cuántos vídeos puedes entregar."}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "¿Cuánto gana un creador UGC?", "acceptedAnswer": {"@type": "Answer", "text": "Varía demasiado para dar una cifra honesta: depende de tu mercado, de los derechos de uso que compre la marca y de cuántos vídeos entregues. Por eso la calculadora pide tu tarifa en lugar de inventarse una."}}, {"@type": "Question", "name": "¿Cuántos vídeos al mes son realistas?", "acceptedAnswer": {"@type": "Answer", "text": "Quien empieza a tiempo parcial suele entregar entre cuatro y doce. Grabar es rápido cuando ya tienes un setup; el briefing y las revisiones son lo que consume tiempo."}}, {"@type": "Question", "name": "¿Necesito seguidores para ser creador UGC?", "acceptedAnswer": {"@type": "Answer", "text": "No. Las marcas compran el vídeo para usarlo en sus propios canales, así que tu número de seguidores no suele entrar en la negociación."}}, {"@type": "Question", "name": "¿Debo cobrar más si el vídeo se usa como anuncio?", "acceptedAnswer": {"@type": "Answer", "text": "Sí. Un vídeo que se emite como anuncio pagado vale más que una publicación orgánica. Confirma el uso antes de dar precio."}}]}</script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.6 system-ui,-apple-system,sans-serif; max-width: 660px;
+          margin: 0 auto; padding: 40px 20px; }
+  h1 { font-size: 30px; margin: 0 0 8px; }
+  .lede { font-size: 17px; opacity: .8; margin: 0 0 24px; }
+  .answer { border-left: 3px solid currentColor; padding: 10px 0 10px 16px;
+             margin: 0 0 28px; font-weight: 500; }
+  .calc { border: 1px solid #8885; border-radius: 12px; padding: 20px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 4px; }
+  input { width: 100%; padding: 10px; font-size: 16px; border: 1px solid #8886;
+           border-radius: 8px; background: transparent; color: inherit; }
+  .out { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr));
+          gap: 14px; margin-top: 22px; padding-top: 20px; border-top: 1px solid #8884; }
+  .out div span { display: block; font-size: 12px; opacity: .65; }
+  .out div strong { font-size: 24px; }
+  .note { font-size: 13px; opacity: .65; margin-top: 16px; }
+  .cta { display: inline-block; margin: 26px 0; padding: 12px 20px;
+          border: 1px solid currentColor; border-radius: 8px;
+          text-decoration: none; color: inherit; font-weight: 600; }
+  details { border-top: 1px solid #8884; padding: 12px 0; }
+  summary { font-weight: 600; cursor: pointer; }
+  details p { margin: 8px 0 0; opacity: .85; }
+</style>
+</head>
+<body>
+
+<h1>¿Cuánto gana un creador UGC?</h1>
+<p class="lede">Calcula cuánto ganarías como creador UGC, a partir de tu propia tarifa por vídeo y de cuántos vídeos puedes entregar.</p>
+<p class="answer">Lo que gana un creador UGC es la tarifa por vídeo multiplicada por los vídeos entregados, menos el tiempo no pagado. Esta calculadora hace esa cuenta con tus números.</p>
+
+<div class="calc">
+  <label for="rate">Tu tarifa por vídeo (€)</label>
+  <input id="rate" type="number" min="0" value="150">
+
+  <label for="videos">Vídeos al mes</label>
+  <input id="videos" type="number" min="0" value="8">
+
+  <label for="hours">Horas por vídeo</label>
+  <input id="hours" type="number" min="0" step="0.5" value="3">
+
+  <label for="target">Objetivo de ingresos mensual (€)</label>
+  <input id="target" type="number" min="0" value="2000">
+
+  <!-- Rendered with real values already computed, so the page answers the
+       question with JavaScript disabled and can be crawled and cited. -->
+  <div class="out">
+    <div><span>Al mes</span><strong id="m">€1,200</strong></div>
+    <div><span>Al año</span><strong id="y">€14,400</strong></div>
+    <div><span>Tarifa horaria efectiva</span><strong id="h">€50.0</strong></div>
+    <div><span>Vídeos para tu objetivo</span><strong id="n">14</strong></div>
+  </div>
+  <p class="note">Esto no es una promesa. Es una cuenta con los datos que has introducido.</p>
+</div>
+
+<a class="cta" href="/es/for-creators">Empieza como creador en 8x &rarr;</a>
+
+<h2>FAQ</h2>
+    <details><summary>¿Cuánto gana un creador UGC?</summary><p>Varía demasiado para dar una cifra honesta: depende de tu mercado, de los derechos de uso que compre la marca y de cuántos vídeos entregues. Por eso la calculadora pide tu tarifa en lugar de inventarse una.</p></details>
+    <details><summary>¿Cuántos vídeos al mes son realistas?</summary><p>Quien empieza a tiempo parcial suele entregar entre cuatro y doce. Grabar es rápido cuando ya tienes un setup; el briefing y las revisiones son lo que consume tiempo.</p></details>
+    <details><summary>¿Necesito seguidores para ser creador UGC?</summary><p>No. Las marcas compran el vídeo para usarlo en sus propios canales, así que tu número de seguidores no suele entrar en la negociación.</p></details>
+    <details><summary>¿Debo cobrar más si el vídeo se usa como anuncio?</summary><p>Sí. Un vídeo que se emite como anuncio pagado vale más que una publicación orgánica. Confirma el uso antes de dar precio.</p></details>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const cur = "\u20ac";
+  function calc() {
+    const rate = +$("rate").value || 0, videos = +$("videos").value || 0;
+    const hours = +$("hours").value || 0, target = +$("target").value || 0;
+    const month = rate * videos;
+    $("m").textContent = cur + month.toLocaleString();
+    $("y").textContent = cur + (month * 12).toLocaleString();
+    $("h").textContent = (videos && hours)
+      ? cur + (month / (videos * hours)).toFixed(2) : "—";
+    $("n").textContent = rate ? Math.ceil(target / rate) : "—";
+  }
+  ["rate","videos","hours","target"].forEach(id =>
+    $(id).addEventListener("input", calc));
+</script>
+
+</body>
+</html>

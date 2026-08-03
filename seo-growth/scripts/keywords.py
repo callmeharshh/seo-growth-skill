@@ -50,8 +50,18 @@ STOP = {
 
 
 def tokens(text):
-    """Topic words only, lowercased."""
-    return {w for w in re.split(r"[^a-z0-9]+", text.lower()) if w and w not in STOP and len(w) > 2}
+    """
+    Topic words only, lowercased.
+
+    Splits on non-word characters with the Unicode flag on. The ASCII-only
+    version silently shredded every accented query — "iş ilanları" became
+    fragments, "schöck" became "sch" and "ck" — which broke coverage matching and
+    named-entity detection in exactly the non-English markets this is for.
+    """
+    return {
+        w for w in re.split(r"[^\w]+", text.lower(), flags=re.UNICODE)
+        if w and w not in STOP and len(w) > 2 and not w.isdigit()
+    }
 
 
 # Autocomplete returns everything that shares a string with your seed, including
@@ -69,8 +79,10 @@ IRRELEVANT = [
     # acronym lookups, not commercial intent
     "full form", "kya hai", "kya hota", "meaning in hindi", "meaning in marathi",
     "meaning in tamil", "meaning in urdu", "abbreviation", "stands for",
-    # different domain
+    # different domain entirely — "creator platform" pulls in game modding
     "roblox", "web 2.0", "web 3.0", "minecraft", "cinema", "les halles",
+    "fallout", "skyrim", "creation kit", "steam workshop", "nexus mods",
+    "unreal", "unity asset",
     # not a business audience
     "bio for instagram", "bio ideas", "username ideas", "account name ideas",
     "captions for", "aesthetic",
@@ -201,15 +213,52 @@ def covers(query, path_tokens_list, threshold=0.75):
 # 3. Score winnability
 # ---------------------------------------------------------------------------
 
-def score(query, our_page, competitor_pages):
+def is_localised(query, locale):
+    """
+    Is this query in the local language rather than English?
+
+    Two signals: characters outside basic Latin (nedir uses none, but ganhar and
+    iş ilanları do), and a small list of high-frequency local words that appear in
+    exactly the queries that matter here — the ones about becoming a creator.
+    """
+    if locale in ("en", ""):
+        return False
+    if re.search(r"[^\x00-\x7F]", query):
+        return True
+    local_markers = {
+        "de": ["werden", "gesucht", "verdienst", "verdienen", "bedeutung", "wie"],
+        "pt": ["vagas", "ganhar", "como", "quanto", "ser", "trabalhar"],
+        "tr": ["nedir", "nasil", "nasıl", "olunur", "ilanlari", "ilanları", "maas", "maaş"],
+        "es": ["trabajo", "empleo", "ganar", "como", "cuanto", "cuánto", "ser"],
+        "fr": ["devenir", "combien", "gagner", "comment", "salaire"],
+        "it": ["diventare", "quanto", "guadagna", "come"],
+        "nl": ["worden", "hoeveel", "verdienen", "wat"],
+        "pl": ["praca", "jak", "zostac", "zostać", "ile"],
+        "id": ["adalah", "cara", "gaji", "kerja"],
+        "hi": ["kaise", "bane", "salary"],
+    }
+    words = set(re.split(r"[^a-zA-ZÀ-ÿıİşŞğĞçÇöÖüÜ]+", query.lower()))
+    return bool(words & set(local_markers.get(locale, [])))
+
+
+def score(query, our_page, competitor_pages, locale="en"):
     """
     Rank by how winnable the query is, and record the reason in words.
 
     The reason matters as much as the number. A score with no explanation is a
     number nobody can argue with, which means nobody will trust it.
+
+    One case needs care. Competitor coverage is normally the strongest signal —
+    someone in the niche decided the query was worth a page. But in a non-English
+    market that logic inverts: the competitors here are English-language sites, so
+    they will never have a page for "ugc creator werden" no matter how much demand
+    exists. Scoring that as "unproven" buries exactly the queries a multi-locale
+    site is best placed to win. Demand is already proven by autocomplete; the
+    absence of a competitor means the market is open, not empty.
     """
     words = len([w for w in query.split() if w])
     specific = min(words, 6)  # longer queries are less contested
+    localised = is_localised(query, locale)
 
     if our_page:
         return {
@@ -229,6 +278,18 @@ def score(query, our_page, competitor_pages):
             "points": 70 + specific * 5 + len(competitor_pages) * 5,
             "why": f"Real query. Not covered by us. Covered by {who}.",
             "action": "write this one first",
+        }
+
+    if localised:
+        return {
+            "verdict": "LOCAL GAP — real local-language query, no competitor serves it",
+            "points": 80 + specific * 5,
+            "why": (
+                f"Real query in the local language ({locale}). We have no page. The "
+                f"competitors checked are English-language sites, so they will not "
+                f"compete here — demand is proven, the market is open."
+            ),
+            "action": "write this in the local language; highest-leverage of all",
         }
 
     return {
@@ -293,6 +354,25 @@ def research(domain, seeds, competitors, locale="en", market="us", depth=26,
         print(f"  {len(paths)} pages", file=sys.stderr)
         comp_index[c] = [(tokens(p), p) for p in paths]
 
+    # ------------------------------------------------------------------
+    # Demote one-off entities: people and brands.
+    #
+    # Autocomplete surfaces named individuals ("ugc creator academy alina
+    # schöck") and specific brands. They are real queries, but a page targeting
+    # someone else's name is not a content strategy. Detect them generically
+    # rather than by blacklist: a token that appears in exactly one query across
+    # the whole discovered set is almost always a proper noun. A real topic word
+    # recurs across the long tail.
+    # ------------------------------------------------------------------
+    freq = {}
+    for q in unique:
+        for w in tokens(q):
+            freq[w] = freq.get(w, 0) + 1
+
+    def looks_like_named_entity(q):
+        rare = [w for w in tokens(q) if freq.get(w, 0) <= 1 and len(w) > 3]
+        return len(rare) >= 2  # two unique-to-this-query words = a name
+
     rows = []
     for q in unique:
         our_page = covers(q, ours)
@@ -301,7 +381,13 @@ def research(domain, seeds, competitors, locale="en", market="us", depth=26,
             hit = covers(q, idx)
             if hit:
                 comp_hits.append((c, hit))
-        s = score(q, our_page, comp_hits)
+        s = score(q, our_page, comp_hits, locale)
+        if looks_like_named_entity(q) and s["points"] > 0:
+            s = {**s,
+                 "points": max(10, s["points"] - 55),
+                 "action": "likely a person or brand name — verify before targeting",
+                 "why": s["why"] + " Contains words unique to this query, which usually "
+                        "means a named person or brand rather than a topic."}
         rows.append({
             "query": q,
             "words": len(q.split()),
@@ -315,6 +401,7 @@ def research(domain, seeds, competitors, locale="en", market="us", depth=26,
     rows.sort(key=lambda r: (-r["points"], r["query"]))
 
     gaps = [r for r in rows if r["verdict"].startswith("GAP")]
+    local = [r for r in rows if r["verdict"].startswith("LOCAL")]
     openq = [r for r in rows if r["verdict"].startswith("open")]
     covered = [r for r in rows if r["verdict"] == "already covered"]
 
@@ -368,6 +455,37 @@ def research(domain, seeds, competitors, locale="en", market="us", depth=26,
             # obviously-actionable cluster.
             "points": primary["points"] + min(len(rest), 6) * 4,
         })
+    # Local-language gaps are plan items too. Group them by containment so
+    # "ugc creator werden" and "ugc creator werden ohne follower" become one page.
+    remaining = list(local)
+    while remaining:
+        seed_row = max(remaining, key=lambda r: r["points"])
+        seed_q = seed_row["query"].lower()
+        head = " ".join(seed_q.split()[:3])
+        members = [r for r in remaining if head in r["query"].lower()] or [seed_row]
+        remaining = [r for r in remaining if r not in members]
+
+        primary_query = pick_primary([m["query"] for m in members])
+        primary = next(m for m in members if m["query"] == primary_query)
+        rest = [m for m in members if m is not primary]
+
+        plan.append({
+            "primary_keyword": primary["query"],
+            "also_answers": [m["query"] for m in rest[:8]],
+            "cluster_size": len(members),
+            "is_category": False,
+            "is_local_language": True,
+            "locale": locale,
+            "intent": primary["intent"],
+            "competitor_pages": [],
+            "why": (
+                f"Real {locale}-language query with no page on our site. The competitors "
+                f"checked are English-language, so they will not compete for it. A site "
+                f"already publishing in {locale} is best placed to take this."
+            ),
+            "points": primary["points"] + min(len(rest), 6) * 4,
+        })
+
     plan.sort(key=lambda c: (c["is_category"], -c["points"]))
 
     return {
@@ -381,6 +499,7 @@ def research(domain, seeds, competitors, locale="en", market="us", depth=26,
         "totals": {
             "real_queries_found": len(unique),
             "gaps_competitor_covers_we_dont": len(gaps),
+            "local_gaps_no_competitor_speaks_the_language": len(local),
             "open_nobody_covers": len(openq),
             "already_covered_by_us": len(covered),
         },
@@ -401,7 +520,8 @@ def print_summary(r):
     print(f"\nWinnable keywords for {r['domain']}  ({r['locale']}-{r['market']})")
     print("=" * 74)
     print(f"  {t['real_queries_found']} real queries found from {len(r['seeds'])} seed(s)")
-    print(f"  {t['gaps_competitor_covers_we_dont']} gaps  ·  "
+    print(f"  {t['gaps_competitor_covers_we_dont']} competitor gaps  ·  "
+          f"{t.get('local_gaps_no_competitor_speaks_the_language', 0)} local-language gaps  ·  "
           f"{t['open_nobody_covers']} uncontested  ·  "
           f"{t['already_covered_by_us']} we already cover")
     print(f"  competitors checked: {', '.join(r['competitors_checked']) or 'none'}")
@@ -420,6 +540,14 @@ def print_summary(r):
                 print(f"     also answers: {', '.join(c['also_answers'][:4])}")
             print(f"     competitor has: {c['competitor_pages'][0]}")
             print()
+
+    loc = [k for k in r["keywords"] if k["verdict"].startswith("LOCAL")]
+    if loc:
+        print(f"LOCAL-LANGUAGE GAPS ({r['locale']}) — real queries no English competitor serves")
+        print("-" * 74)
+        for k in loc[:10]:
+            print(f"  [{k['points']:>3}] {k['query']}  ({k['intent']})")
+        print()
 
     openq = [k for k in r["keywords"] if k["verdict"].startswith("open")]
     if openq:

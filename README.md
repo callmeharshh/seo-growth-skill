@@ -40,6 +40,62 @@ dashboard. On a weekly cron the loop runs itself:
 
 Adding your 11th domain is an entry in `portfolio.json`. Nothing else changes.
 
+## The shared target list, per market
+
+The brief specifies nine columns. This outputs exactly those:
+
+```bash
+python3 scripts/target_list.py --markets --csv targets.csv
+```
+
+```
+ PRI  MARKET         AUDIENCE                       ASSET          QUERY / TOPIC
+  114 Germany        Creator (supply)               blog post      ugc creator jobs
+   95 All            Search crawler / answer engine technical fix  Unknown URLs return 200 not 404
+   90 Turkey         Creator (supply)               blog post      ugc creator jobs
+   85 All            Search crawler / answer engine technical fix  Only 8% of pages exist in every locale
+```
+
+**Two of those columns are Market and Audience, which is why it runs per market.**
+The same seed returns a different audience in each country. In the US "ugc creator"
+is category research. In Germany, Brazil and Turkey it is overwhelmingly people
+looking for the work — *werden*, *vagas*, *iş ilanları*. Different audience,
+different asset, different conversion path. A single-market run reports none of it.
+
+For a two-sided marketplace that decides the page: supply-side queries route to
+creator signup, demand-side to sales.
+
+## Free tools it actually builds
+
+```bash
+python3 scripts/make_tool.py --all-markets --out out/tools
+```
+
+Four deployable, self-contained HTML pages — one per market, each targeting a
+**verified** query:
+
+| Market | Target keyword | Route |
+|---|---|---|
+| 🇺🇸 | `ugc creator salary` | `/en/tools/ugc-creator-salary` |
+| 🇩🇪 | `ugc creator verdienst` | `/de/tools/ugc-creator-verdienst` |
+| 🇧🇷 | `quanto ganha um ugc creator` | `/pt/tools/quanto-ganha-um-ugc-creator` |
+| 🇪🇸🇲🇽 | `cuanto gana un creador ugc` | `/es/tools/cuanto-gana-un-creador-ugc` |
+
+Note the Spanish one: **"creador ugc"**, not "ugc creator". Spanish flips the noun
+order, German doesn't. Only knowable by measuring.
+
+The answer renders in the HTML *before* JavaScript runs — a tool whose output only
+appears after JS can't be ranked or cited, which is why most SaaS tool pages are
+invisible. FAQPage + WebApplication schema, 6KB, zero external requests.
+
+**It refuses to build a page for a keyword nobody searches.** A Turkish calculator
+was drafted around `ugc creator maaş`; autocomplete showed that isn't a real
+Turkish query. Turkey wants an explainer (`nedir`, `nasıl olunur`), not a
+calculator. The generator now verifies first and declines.
+
+It also never states what UGC pays — you enter your own rate and it does the
+arithmetic. Inventing rate data would be the fastest way to lose a reader.
+
 ## The interesting part: how "winnable" is decided
 
 Not with a guessed difficulty score. With three things that are free and

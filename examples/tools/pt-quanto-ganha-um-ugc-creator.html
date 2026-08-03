@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora: Quanto Ganha um UGC Creator</title>
+<meta name="description" content="Calcule quanto você ganharia como UGC creator, a partir do seu próprio valor por vídeo e de quantos vídeos consegue entregar.">
+<link rel="canonical" href="/pt/tools/quanto-ganha-um-ugc-creator">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Quanto ganha um UGC creator?", "applicationCategory": "FinanceApplication", "operatingSystem": "Any", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "description": "Calcule quanto você ganharia como UGC creator, a partir do seu próprio valor por vídeo e de quantos vídeos consegue entregar."}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Quanto ganha um UGC creator no Brasil?", "acceptedAnswer": {"@type": "Answer", "text": "Varia demais para dar um número honesto: depende do seu mercado, dos direitos de uso que a marca compra e de quantos vídeos você entrega. Por isso a calculadora pede o seu valor em vez de inventar um."}}, {"@type": "Question", "name": "Quantos vídeos por mês dá para fazer?", "acceptedAnswer": {"@type": "Answer", "text": "Quem começa em paralelo costuma entregar de quatro a doze. Gravar é rápido depois que você tem um setup — briefing e ajustes é que tomam tempo."}}, {"@type": "Question", "name": "Preciso de seguidores para ser UGC creator?", "acceptedAnswer": {"@type": "Answer", "text": "Não. As marcas compram o vídeo para usar nos canais delas, então o número de seguidores geralmente não entra na negociação."}}, {"@type": "Question", "name": "Devo cobrar mais quando o vídeo vira anúncio?", "acceptedAnswer": {"@type": "Answer", "text": "Sim. Um vídeo que roda como anúncio pago vale mais que um post orgânico. Confirme o uso antes de passar o orçamento."}}]}</script>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.6 system-ui,-apple-system,sans-serif; max-width: 660px;
+          margin: 0 auto; padding: 40px 20px; }
+  h1 { font-size: 30px; margin: 0 0 8px; }
+  .lede { font-size: 17px; opacity: .8; margin: 0 0 24px; }
+  .answer { border-left: 3px solid currentColor; padding: 10px 0 10px 16px;
+             margin: 0 0 28px; font-weight: 500; }
+  .calc { border: 1px solid #8885; border-radius: 12px; padding: 20px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 4px; }
+  input { width: 100%; padding: 10px; font-size: 16px; border: 1px solid #8886;
+           border-radius: 8px; background: transparent; color: inherit; }
+  .out { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr));
+          gap: 14px; margin-top: 22px; padding-top: 20px; border-top: 1px solid #8884; }
+  .out div span { display: block; font-size: 12px; opacity: .65; }
+  .out div strong { font-size: 24px; }
+  .note { font-size: 13px; opacity: .65; margin-top: 16px; }
+  .cta { display: inline-block; margin: 26px 0; padding: 12px 20px;
+          border: 1px solid currentColor; border-radius: 8px;
+          text-decoration: none; color: inherit; font-weight: 600; }
+  details { border-top: 1px solid #8884; padding: 12px 0; }
+  summary { font-weight: 600; cursor: pointer; }
+  details p { margin: 8px 0 0; opacity: .85; }
+</style>
+</head>
+<body>
+
+<h1>Quanto ganha um UGC creator?</h1>
+<p class="lede">Calcule quanto você ganharia como UGC creator, a partir do seu próprio valor por vídeo e de quantos vídeos consegue entregar.</p>
+<p class="answer">Quanto um UGC creator ganha é o valor por vídeo multiplicado pelos vídeos entregues, menos o tempo não pago. Esta calculadora faz essa conta com os seus números.</p>
+
+<div class="calc">
+  <label for="rate">Seu valor por vídeo (R$)</label>
+  <input id="rate" type="number" min="0" value="150">
+
+  <label for="videos">Vídeos por mês</label>
+  <input id="videos" type="number" min="0" value="8">
+
+  <label for="hours">Horas por vídeo</label>
+  <input id="hours" type="number" min="0" step="0.5" value="3">
+
+  <label for="target">Meta de renda mensal (R$)</label>
+  <input id="target" type="number" min="0" value="2000">
+
+  <!-- Rendered with real values already computed, so the page answers the
+       question with JavaScript disabled and can be crawled and cited. -->
+  <div class="out">
+    <div><span>Por mês</span><strong id="m">R$1,200</strong></div>
+    <div><span>Por ano</span><strong id="y">R$14,400</strong></div>
+    <div><span>Valor por hora efetivo</span><strong id="h">R$50.0</strong></div>
+    <div><span>Vídeos para bater sua meta</span><strong id="n">14</strong></div>
+  </div>
+  <p class="note">Isto não é uma promessa. É uma conta com os números que você informou.</p>
+</div>
+
+<a class="cta" href="/pt/for-creators">Começar como creator na 8x &rarr;</a>
+
+<h2>FAQ</h2>
+    <details><summary>Quanto ganha um UGC creator no Brasil?</summary><p>Varia demais para dar um número honesto: depende do seu mercado, dos direitos de uso que a marca compra e de quantos vídeos você entrega. Por isso a calculadora pede o seu valor em vez de inventar um.</p></details>
+    <details><summary>Quantos vídeos por mês dá para fazer?</summary><p>Quem começa em paralelo costuma entregar de quatro a doze. Gravar é rápido depois que você tem um setup — briefing e ajustes é que tomam tempo.</p></details>
+    <details><summary>Preciso de seguidores para ser UGC creator?</summary><p>Não. As marcas compram o vídeo para usar nos canais delas, então o número de seguidores geralmente não entra na negociação.</p></details>
+    <details><summary>Devo cobrar mais quando o vídeo vira anúncio?</summary><p>Sim. Um vídeo que roda como anúncio pago vale mais que um post orgânico. Confirme o uso antes de passar o orçamento.</p></details>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const cur = "R$";
+  function calc() {
+    const rate = +$("rate").value || 0, videos = +$("videos").value || 0;
+    const hours = +$("hours").value || 0, target = +$("target").value || 0;
+    const month = rate * videos;
+    $("m").textContent = cur + month.toLocaleString();
+    $("y").textContent = cur + (month * 12).toLocaleString();
+    $("h").textContent = (videos && hours)
+      ? cur + (month / (videos * hours)).toFixed(2) : "—";
+    $("n").textContent = rate ? Math.ceil(target / rate) : "—";
+  }
+  ["rate","videos","hours","target"].forEach(id =>
+    $(id).addEventListener("input", calc));
+</script>
+
+</body>
+</html>
