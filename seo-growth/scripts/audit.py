@@ -373,13 +373,22 @@ def save_run(run):
     return path
 
 
+# Snapshot filenames are date-stamped: 2026-08-04-0010.json. Matching on that
+# shape matters — the keyword research written by run_portfolio.py lands in the
+# same folder as keywords-2026-08-04.json, and a plain "*.json" scan sorted it
+# last, so the dashboard read a keyword file as if it were an audit snapshot.
+# Every audit field came back missing and six checks reported as "unmeasured"
+# while the real numbers sat in the file next to it.
+SNAPSHOT_NAME = re.compile(r"^\d{4}-\d{2}-\d{2}-\d{4}\.json$")
+
+
 def past_runs(domain):
     folder = os.path.join(HISTORY_DIR, domain)
     if not os.path.isdir(folder):
         return []
     out = []
     for name in sorted(os.listdir(folder)):
-        if not name.endswith(".json"):
+        if not SNAPSHOT_NAME.match(name):
             continue
         try:
             with open(os.path.join(folder, name)) as f:
@@ -460,18 +469,32 @@ def build_dashboard(out_path=None):
         # Health here is deliberately simple: how many of the checks that
         # returned an answer are currently in a good state. No weighting, no
         # hidden formula — you can recount it by hand from the table.
-        checks = [
-            m["unknown URLs 404 correctly"] is True,
-            m["temporary redirects"] == 0,
-            m["llms.txt present"] is True,
-            (m["pages with no conversion link"] or 0) == 0,
-            (m["translated into every locale (%)"] or 100) >= 90,
-            (m["pages with FAQ schema"] or 0) > 0,
-        ]
-        passed = sum(1 for c in checks if c)
+        # Each check returns True, False, or None for "could not be measured".
+        #
+        # None must never be scored as a pass. An earlier version wrote
+        # `(translated or 100) >= 90`, which turned an unmeasured value into 100
+        # and silently passed the check — single-language sites got credit for
+        # translation coverage that was never assessed, and www.8x.social scored
+        # 4/6 when only 2 checks actually passed. Unmeasured checks leave the
+        # denominator instead.
+        def measured(value, test):
+            return None if value is None else test(value)
+
+        checks = {
+            "404s": measured(m["unknown URLs 404 correctly"], lambda v: v is True),
+            "redirects": measured(m["temporary redirects"], lambda v: v == 0),
+            "llms.txt": measured(m["llms.txt present"], lambda v: v is True),
+            "conversion links": measured(m["pages with no conversion link"], lambda v: v == 0),
+            "translation": measured(m["translated into every locale (%)"], lambda v: v >= 90),
+            "FAQ schema": measured(m["pages with FAQ schema"], lambda v: v > 0),
+        }
+        assessed = {k: v for k, v in checks.items() if v is not None}
+        passed = sum(1 for v in assessed.values() if v)
+        not_assessed = [k for k, v in checks.items() if v is None]
         rows.append({
             "domain": domain, "stamp": stamp, "m": m, "changes": changes,
-            "problems": problems, "passed": passed, "total": len(checks),
+            "problems": problems, "passed": passed, "total": len(assessed),
+            "not_assessed": not_assessed,
             "runs": len(runs),
             "history": [(s, key_metrics(r)) for s, r in runs],
         })
@@ -493,7 +516,9 @@ def build_dashboard(out_path=None):
       <tr>
         <td class="dom"><strong>{r['domain']}</strong><br>
           <span class="muted">{r['stamp']} · {r['runs']} run(s)</span></td>
-        <td><strong>{r['passed']}/{r['total']}</strong> checks passing</td>
+        <td><strong>{r['passed']}/{r['total']}</strong> checks passing
+          {f'<br><span class="muted">{len(r["not_assessed"])} not measured</span>'
+             if r['not_assessed'] else ''}</td>
         {cell(m['unknown URLs 404 correctly'])}
         {cell(m['temporary redirects'], m['temporary redirects'] == 0)}
         {cell(m['translated into every locale (%)'])}
@@ -568,10 +593,10 @@ def build_dashboard(out_path=None):
 {'<h2>What to fix</h2>' + ''.join(notes_blocks) if notes_blocks else ''}
 
 <footer>
-  <p><strong>How to read this.</strong> "Status" counts how many of six checks are
-  currently in a good state — no weighting, you can recount it from the row.
-  Blank cells mean the check could not be measured, which is not the same as
-  passing.</p>
+  <p><strong>How to read this.</strong> "Status" counts how many of the checks that
+  could actually be measured are in a good state — no weighting, you can recount it
+  from the row. A check that could not be measured is excluded from the count and
+  reported separately, never counted as a pass. Blank cells mean the same thing.</p>
   <p><strong>Refresh it:</strong>
   <code>python3 audit.py &lt;domain&gt; --save</code> then
   <code>python3 audit.py --dashboard</code></p>

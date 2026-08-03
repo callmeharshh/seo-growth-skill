@@ -333,6 +333,10 @@ def build(loc_key):
 
 def main():
     argv = sys.argv[1:]
+    if not argv:
+        print(__doc__)
+        print("Nothing written. Pass --locale <code> or --all-markets.\n")
+        sys.exit(0)
     out_dir = argv[argv.index("--out") + 1] if "--out" in argv else "out/tools"
     if "--all-markets" in argv:
         locales = list(LOCALES)

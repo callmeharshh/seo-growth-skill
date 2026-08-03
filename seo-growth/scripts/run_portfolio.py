@@ -75,6 +75,11 @@ def run_property(prop, do_keywords=True):
 
     # --- 2. winnable keywords + content plan --------------------------------
     plan = None
+    if prop.get("role") == "benchmark":
+        print("\n  benchmark property — audited with the same checks, no keyword "
+              "research and no target list. We don't write content for a competitor.")
+        return {"domain": domain, "audit": result, "keywords": None}
+
     if do_keywords and prop.get("seeds"):
         print("\nFinding winnable keywords...")
         try:
@@ -115,6 +120,14 @@ def run_property(prop, do_keywords=True):
 
 def main():
     argv = sys.argv[1:]
+    # This makes dozens of network requests and takes minutes. Don't start it just
+    # because someone ran the file to see what it was.
+    if not argv:
+        print(__doc__)
+        print("Nothing run. Pass --go to audit every property, or --only <domain>.\n")
+        sys.exit(0)
+    if argv == ["--go"]:
+        argv = []
     only = argv[argv.index("--only") + 1] if "--only" in argv else None
     do_keywords = "--skip-keywords" not in argv
 

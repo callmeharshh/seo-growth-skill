@@ -31,6 +31,7 @@ because the list is meant to be worked, not admired.
 import csv
 import json
 import os
+import re
 import sys
 import time
 
@@ -82,22 +83,31 @@ def audience_for(query, intent):
         "hire", "agency", "platform", "software", "tool", "vs", "alternative",
         "pricing", "cost", "for brands", "for dtc", "campaign", "roi", "best",
     ]
-    if any(w in q for w in supply):
+    if any(_has_word(q, w) for w in supply):
         return "Creator (supply)"
-    if any(w in q for w in demand):
+    if any(_has_word(q, w) for w in demand):
         return "Brand (demand)"
     if intent in ("commercial", "tool"):
         return "Brand (demand)"
     return "Researcher (top of funnel)"
 
 
+# Whole-word matching, because substring matching produced real nonsense:
+# "rate" matched inside "user gene(rate)d content", so a pronunciation query was
+# recommended as a calculator.
+def _has_word(q, phrase):
+    return re.search(rf"(?<!\w){re.escape(phrase)}(?!\w)", q, re.UNICODE) is not None
+
+
 def asset_for(query, intent, audience):
     """What should we actually build for this query?"""
     q = query.lower()
-    if any(w in q for w in ("calculator", "how much", "salary", "rate", "cost",
-                            "verdienst", "maaş", "quanto ganha", "cuánto")):
+    tool_signals = ("calculator", "how much", "salary", "rate", "cost", "pay",
+                    "verdienst", "maaş", "quanto ganha", "cuánto gana",
+                    "cuanto gana", "sueldo", "salaire")
+    if any(_has_word(q, w) for w in tool_signals):
         return "free tool"
-    if " vs " in q or "alternative" in q:
+    if _has_word(q, "vs") or _has_word(q, "alternative"):
         return "comparison page"
     if intent == "commercial" or audience == "Brand (demand)":
         return "landing page"
@@ -243,6 +253,12 @@ def print_table(rows, limit=25):
 
 def main():
     argv = sys.argv[1:]
+    if not argv:
+        print(__doc__)
+        print("Nothing run. Pass --go for the default market, or --markets for all.\n")
+        sys.exit(0)
+    if argv == ["--go"]:
+        argv = []
 
     def opt(n, d=None):
         return argv[argv.index(f"--{n}") + 1] if f"--{n}" in argv else d
@@ -259,6 +275,8 @@ def main():
 
     depth = int(opt("depth", "8"))
     all_rows = []
+
+    props = [p for p in props if p.get("role", "owned") == "owned"]
 
     for prop in props:
         domain = prop["domain"]

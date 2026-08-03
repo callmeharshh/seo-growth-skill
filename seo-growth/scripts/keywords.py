@@ -141,6 +141,18 @@ def suggest(seed, locale="en", market="us"):
         return []
 
 
+# Autocomplete sometimes returns queries prefixed with invisible characters
+# (word joiner U+2060, zero-width space, BOM). They survive into slugs and make
+# a query look duplicated. Strip them at the source.
+INVISIBLE = dict.fromkeys(
+    [0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF, 0x00AD, 0x200E, 0x200F], None
+)
+
+
+def clean_query(q):
+    return q.translate(INVISIBLE).strip()
+
+
 def discover(seed, locale="en", market="us", depth=26):
     """
     Expand one seed into many real queries.
@@ -155,6 +167,7 @@ def discover(seed, locale="en", market="us", depth=26):
 
     for probe in probes:
         for s in suggest(probe, locale, market):
+            s = clean_query(s)
             key = s.lower().strip()
             if key and key not in found:
                 found[key] = s
@@ -213,32 +226,57 @@ def covers(query, path_tokens_list, threshold=0.75):
 # 3. Score winnability
 # ---------------------------------------------------------------------------
 
+# Words distinctive to exactly one language. Used to confirm a query belongs to
+# the target market and — more importantly — to reject one that belongs to a
+# different market. Google's es-MX autocomplete returns Portuguese and de-DE
+# returns Italian, so without this "ugc creator como começar" was reported as a
+# Spanish opportunity and "ugc creator cos è" as a German one.
+EXCLUSIVE_TO = {
+    "pt": ["começar", "ganhar", "vagas", "confiável", "quanto", "trabalhar", "ganha"],
+    "it": ["cos", "diventare", "guadagna", "significato"],
+    "de": ["werden", "gesucht", "verdienst", "verdienen", "aufträge", "bedeutung",
+           "erklärung", "wieviel"],
+    "tr": ["nedir", "olunur", "ilanları", "maaş", "nasıl"],
+    "es": ["trabajo", "empleo", "cuánto", "cuanto", "sueldo", "gana"],
+    "fr": ["devenir", "salaire", "combien"],
+    "nl": ["worden", "hoeveel", "wat"],
+    "pl": ["praca", "zostać", "ile"],
+    "id": ["adalah", "gaji", "cara"],
+    "hi": ["kaise", "bane"],
+}
+
+# Reverse index: word -> the language it belongs to.
+_WORD_LANG = {w: lang for lang, words in EXCLUSIVE_TO.items() for w in words}
+
+
+def query_language(query):
+    """The language a query's distinctive words point at, or None."""
+    words = set(re.split(r"[^\w]+", query.lower(), flags=re.UNICODE))
+    hits = {_WORD_LANG[w] for w in words if w in _WORD_LANG}
+    return hits.pop() if len(hits) == 1 else None
+
+
 def is_localised(query, locale):
     """
-    Is this query in the local language rather than English?
+    Is this query in the local language of this market?
 
-    Two signals: characters outside basic Latin (nedir uses none, but ganhar and
-    iş ilanları do), and a small list of high-frequency local words that appear in
-    exactly the queries that matter here — the ones about becoming a creator.
+    Order matters here. An earlier version checked for non-ASCII characters first
+    and returned True immediately, so "começar" (Portuguese) counted as Spanish
+    purely because of the cedilla. The foreign-language rejection has to run
+    before any character-set shortcut.
     """
     if locale in ("en", ""):
         return False
-    if re.search(r"[^\x00-\x7F]", query):
-        return True
-    local_markers = {
-        "de": ["werden", "gesucht", "verdienst", "verdienen", "bedeutung", "wie"],
-        "pt": ["vagas", "ganhar", "como", "quanto", "ser", "trabalhar"],
-        "tr": ["nedir", "nasil", "nasıl", "olunur", "ilanlari", "ilanları", "maas", "maaş"],
-        "es": ["trabajo", "empleo", "ganar", "como", "cuanto", "cuánto", "ser"],
-        "fr": ["devenir", "combien", "gagner", "comment", "salaire"],
-        "it": ["diventare", "quanto", "guadagna", "come"],
-        "nl": ["worden", "hoeveel", "verdienen", "wat"],
-        "pl": ["praca", "jak", "zostac", "zostać", "ile"],
-        "id": ["adalah", "cara", "gaji", "kerja"],
-        "hi": ["kaise", "bane", "salary"],
-    }
-    words = set(re.split(r"[^a-zA-ZÀ-ÿıİşŞğĞçÇöÖüÜ]+", query.lower()))
-    return bool(words & set(local_markers.get(locale, [])))
+
+    lang = query_language(query)
+    if lang and lang != locale:
+        return False          # belongs to a different market entirely
+    if lang == locale:
+        return True           # distinctive local word, confirmed
+
+    # No distinctive word either way. Non-Latin characters are then a reasonable
+    # signal the query is not English.
+    return bool(re.search(r"[^\x00-\x7F]", query))
 
 
 def score(query, our_page, competitor_pages, locale="en"):
