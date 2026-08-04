@@ -202,6 +202,32 @@ def slugify(s):
     return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", s)).strip("-")
 
 
+# Thousands and decimal separators differ by locale, and getting them wrong on a
+# page whose whole pitch is "properly localised" is worse than not localising at
+# all. A German reading "€1,200" sees one euro twenty.
+SEPARATORS = {
+    "en": (",", "."),   # 1,200.50
+    "de": (".", ","),   # 1.200,50
+    "pt": (".", ","),   # 1.200,50
+    "es": (".", ","),   # 1.200,50
+}
+
+# BCP-47 tag for Intl.NumberFormat on the client, so JS matches the server.
+INTL_TAG = {"en": "en-US", "de": "de-DE", "pt": "pt-BR", "es": "es-ES"}
+
+
+def fmt_int(n, loc_key):
+    thousands, _ = SEPARATORS.get(loc_key, (",", "."))
+    return f"{n:,}".replace(",", thousands)
+
+
+def fmt_money(n, loc_key):
+    """Two decimals, with the locale's separators."""
+    thousands, decimal = SEPARATORS.get(loc_key, (",", "."))
+    whole, frac = f"{n:,.2f}".split(".")
+    return whole.replace(",", thousands) + decimal + frac
+
+
 def build(loc_key):
     L = LOCALES[loc_key]
     slug = slugify(L["kw"])
@@ -212,9 +238,16 @@ def build(loc_key):
     d_rate, d_videos, d_hours, d_target = 150, 8, 3, 2000
     d_month = d_rate * d_videos
     d_year = d_month * 12
-    d_hourly = round(d_month / (d_videos * d_hours), 2)
+    d_hourly = d_month / (d_videos * d_hours)
     d_needed = -(-d_target // d_rate)
     c = L["cur"]
+
+    # Rendered strings, formatted for this locale so the server output and the
+    # JavaScript output are identical rather than changing shape on first keystroke.
+    s_month = fmt_int(d_month, loc_key)
+    s_year = fmt_int(d_year, loc_key)
+    s_hourly = fmt_money(d_hourly, loc_key)
+    s_needed = fmt_int(d_needed, loc_key)
 
     faq_html = "".join(
         f'\n    <details><summary>{q}</summary><p>{a}</p></details>'
@@ -297,10 +330,10 @@ def build(loc_key):
   <!-- Rendered with real values already computed, so the page answers the
        question with JavaScript disabled and can be crawled and cited. -->
   <div class="out">
-    <div><span>{L['monthly']}</span><strong id="m">{c}{d_month:,}</strong></div>
-    <div><span>{L['yearly']}</span><strong id="y">{c}{d_year:,}</strong></div>
-    <div><span>{L['hourly']}</span><strong id="h">{c}{d_hourly}</strong></div>
-    <div><span>{L['needed']}</span><strong id="n">{d_needed}</strong></div>
+    <div><span>{L['monthly']}</span><strong id="m">{c}{s_month}</strong></div>
+    <div><span>{L['yearly']}</span><strong id="y">{c}{s_year}</strong></div>
+    <div><span>{L['hourly']}</span><strong id="h">{c}{s_hourly}</strong></div>
+    <div><span>{L['needed']}</span><strong id="n">{s_needed}</strong></div>
   </div>
   <p class="note">{L['note']}</p>
 </div>
@@ -312,15 +345,22 @@ def build(loc_key):
 <script>
   const $ = id => document.getElementById(id);
   const cur = {json.dumps(c)};
+  // Same locale as the server-rendered values, so nothing reformats on the first
+  // keystroke.
+  const LOC = {json.dumps(INTL_TAG.get(loc_key, "en-US"))};
+  const int0 = new Intl.NumberFormat(LOC, {{maximumFractionDigits: 0}});
+  const dec2 = new Intl.NumberFormat(LOC, {{minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2}});
+
   function calc() {{
     const rate = +$("rate").value || 0, videos = +$("videos").value || 0;
     const hours = +$("hours").value || 0, target = +$("target").value || 0;
     const month = rate * videos;
-    $("m").textContent = cur + month.toLocaleString();
-    $("y").textContent = cur + (month * 12).toLocaleString();
+    $("m").textContent = cur + int0.format(month);
+    $("y").textContent = cur + int0.format(month * 12);
     $("h").textContent = (videos && hours)
-      ? cur + (month / (videos * hours)).toFixed(2) : "—";
-    $("n").textContent = rate ? Math.ceil(target / rate) : "—";
+      ? cur + dec2.format(month / (videos * hours)) : "—";
+    $("n").textContent = rate ? int0.format(Math.ceil(target / rate)) : "—";
   }}
   ["rate","videos","hours","target"].forEach(id =>
     $(id).addEventListener("input", calc));

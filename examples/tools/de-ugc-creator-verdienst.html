@@ -55,9 +55,9 @@
   <!-- Rendered with real values already computed, so the page answers the
        question with JavaScript disabled and can be crawled and cited. -->
   <div class="out">
-    <div><span>Pro Monat</span><strong id="m">€1,200</strong></div>
-    <div><span>Pro Jahr</span><strong id="y">€14,400</strong></div>
-    <div><span>Effektiver Stundenlohn</span><strong id="h">€50.0</strong></div>
+    <div><span>Pro Monat</span><strong id="m">€1.200</strong></div>
+    <div><span>Pro Jahr</span><strong id="y">€14.400</strong></div>
+    <div><span>Effektiver Stundenlohn</span><strong id="h">€50,00</strong></div>
     <div><span>Videos für dein Ziel</span><strong id="n">14</strong></div>
   </div>
   <p class="note">Das ist kein Versprechen, sondern eine Rechnung mit deinen Angaben.</p>
@@ -74,15 +74,22 @@
 <script>
   const $ = id => document.getElementById(id);
   const cur = "\u20ac";
+  // Same locale as the server-rendered values, so nothing reformats on the first
+  // keystroke.
+  const LOC = "de-DE";
+  const int0 = new Intl.NumberFormat(LOC, {maximumFractionDigits: 0});
+  const dec2 = new Intl.NumberFormat(LOC, {minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2});
+
   function calc() {
     const rate = +$("rate").value || 0, videos = +$("videos").value || 0;
     const hours = +$("hours").value || 0, target = +$("target").value || 0;
     const month = rate * videos;
-    $("m").textContent = cur + month.toLocaleString();
-    $("y").textContent = cur + (month * 12).toLocaleString();
+    $("m").textContent = cur + int0.format(month);
+    $("y").textContent = cur + int0.format(month * 12);
     $("h").textContent = (videos && hours)
-      ? cur + (month / (videos * hours)).toFixed(2) : "—";
-    $("n").textContent = rate ? Math.ceil(target / rate) : "—";
+      ? cur + dec2.format(month / (videos * hours)) : "—";
+    $("n").textContent = rate ? int0.format(Math.ceil(target / rate)) : "—";
   }
   ["rate","videos","hours","target"].forEach(id =>
     $(id).addEventListener("input", calc));
